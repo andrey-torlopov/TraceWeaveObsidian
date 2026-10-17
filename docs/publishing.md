@@ -1,6 +1,6 @@
 # Сборка, проверка и публикация TraceWeave для Obsidian
 
-Репозиторий: [andrey-torlopov/TraceWeaveObsidian](https://github.com/andrey-torlopov/TraceWeaveObsidian). Версия этой инструкции — 0.1.4. Установка пользователем описана [здесь](ru/installation.md); документация веб-версии и её Docker-дистрибутив находятся в [отдельном репозитории](https://github.com/andrey-torlopov/TraceWeave).
+Репозиторий: [andrey-torlopov/TraceWeaveObsidian](https://github.com/andrey-torlopov/TraceWeaveObsidian). Версия этой инструкции — 0.1.5. Установка пользователем описана [здесь](ru/installation.md); документация веб-версии и её Docker-дистрибутив находятся в [отдельном репозитории](https://github.com/andrey-torlopov/TraceWeave).
 
 ## Что публикуется
 
@@ -17,6 +17,8 @@
 ```sh
 npm ci
 npm run verify:public
+npm run generate:validators
+npm run lint
 npm test
 npm run package
 npm run verify:public -- --package
@@ -27,24 +29,24 @@ git diff --check
 
 ```sh
 gitleaks git . --log-opts='--all --full-history' --redact --no-banner --ignore-gitleaks-allow
-gitleaks dir release/0.1.4 --redact --no-banner --ignore-gitleaks-allow
+gitleaks dir release/0.1.5 --redact --no-banner --ignore-gitleaks-allow
 ```
 
-CI выполняет проверки при push/PR и не публикует релизы автоматически. В CI закреплены версии инструментов; бинарный Gitleaks проверяется по опубликованной контрольной сумме. Не добавляйте suppressions для настоящих секретов. При находке уже опубликованного ключа сначала отзовите/замените его; очистка нового commit не удаляет историю или скачанные копии.
+CI выполняет проверки при push/PR и не публикует релизы автоматически. Для нового version tag отдельный job создаёт GitHub build provenance attestations для трёх compiled assets; upload-artifact сохраняет именно эти проверенные байты. Линтер использует официальный recommended-конфиг Obsidian без отключения правил. В CI закреплены версии инструментов; бинарный Gitleaks проверяется по опубликованной контрольной сумме. Не добавляйте suppressions для настоящих секретов. При находке уже опубликованного ключа сначала отзовите/замените его; очистка нового commit не удаляет историю или скачанные копии.
 
 Проверьте ZIP по CRC и `SHA256SUMS`, установите его в отдельный синтетический vault и проверьте открытие исследования, заметки, связи, материалов, restart, backup и import. Проверенный профиль: desktop Obsidian **1.14.4**, macOS; Windows/Linux и все кодеки не объявляются полностью проверенными. Не используйте реальные материалы для тестов.
 
 ## GitHub Release
 
-Согласуйте `package.json`, lock-файл, `manifest.json` и `versions.json`. Для 0.1.4 минимальная версия приложения — 1.14.4; версия установщика не доказывает совместимость со старым runtime.
+Согласуйте `package.json`, lock-файл, `manifest.json` и `versions.json`. Для 0.1.5 минимальная версия приложения — 1.14.4; версия установщика не доказывает совместимость со старым runtime.
 
-После проверок и push `main` создайте релиз с тегом **`0.1.4`** — точно как `manifest.version`, без префикса `v`. К релизу приложите **отдельные** файлы из `release/0.1.4/`:
+После проверок и push `main` создайте релиз с тегом **`0.1.5`** — точно как `manifest.version`, без префикса `v`. К релизу приложите **отдельные** файлы из `release/0.1.5/`:
 
 - `main.js`;
 - `manifest.json`;
 - `styles.css`.
 
-Дополнительно приложите `traceweave-0.1.4.zip`, `SHA256SUMS`, LICENSE и уведомления лицензий. Source code ZIP, который создаёт GitHub, не заменяет compiled assets. После публикации скачайте assets заново без авторизации и сравните их hashes с проверенными файлами. Уже опубликованные байты под прежним тегом не заменяются: исправление получает новый номер.
+Другие файлы к GitHub Release не прикладывайте: Community directory отмечает их как неподдерживаемые. ZIP и SHA256SUMS остаются локальными результатами `npm run package`. Полные лицензии программы, Unicode и реально включённых библиотек добавляются в конец `main.js`. Source code ZIP, который создаёт GitHub, не заменяет compiled assets. Сначала скачайте artifact `attested-plugin` успешного tag workflow и проверьте совпадение с локальной сборкой. Публикуйте эти три файла. После публикации скачайте assets заново без авторизации, сравните hashes и выполните `gh attestation verify <file> --repo andrey-torlopov/TraceWeaveObsidian` для каждого файла. Уже опубликованные байты под прежним тегом не заменяются: исправление получает новый номер.
 
 README/manifest должны находиться в корне основной ветки. Поле `id: traceweave` — имя папки установки; менять его после распространения без миграционной стратегии нельзя.
 

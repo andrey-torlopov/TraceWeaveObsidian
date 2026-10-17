@@ -58,3 +58,31 @@ for(const problem of ['destination-conflict','unknown-json','symlink','malformed
 test('hidden migration guards external edits, protected marker paths and reappearing roots',async()=>{
   const f=await fixture();try{await assert.rejects(()=>migrateLegacyVault(f.root,{fault(point){if(point==='after-prepared')throw new Error('Pause');}}),/Pause/);const markerPath=path.join(f.root,'.twdata/layout-migration.json'),raw=await fs.readFile(markerPath,'utf8'),marker=JSON.parse(raw);const external=marker.prepared.find((move:{to:string})=>move.to===f.external);external.to='.obsidian/stolen.md';marker.externalNotes.push(external.to);marker.planHash=digest(stableJSON({id:marker.id,moves:marker.moves,prepared:marker.prepared,aliases:marker.aliases,externalNotes:marker.externalNotes,baselines:marker.baselines,retainedRoot:marker.retainedRoot}));await fs.writeFile(markerPath,JSON.stringify(marker));await assert.rejects(()=>migrateLegacyVault(f.root));assert.ok(!await exists(path.join(f.root,'.obsidian/stolen.md')));await fs.writeFile(markerPath,raw);const before=await fs.readFile(path.join(f.root,f.external));await fs.appendFile(path.join(f.root,f.external),'External edit');await assert.rejects(()=>migrateLegacyVault(f.root),/изменён/);assert.ok((await fs.readFile(path.join(f.root,f.external),'utf8')).endsWith('External edit'));await fs.writeFile(path.join(f.root,f.external),before);await migrateLegacyVault(f.root);await fs.mkdir(path.join(f.root,'TWData'));await assert.rejects(()=>migrateLegacyVault(f.root),error=>error instanceof DomainError&&error.code==='migration_conflict');assert.equal(isAllowedNotePath('.twdata/notes/hidden.md'),false);assert.equal(isAllowedNotePath('TWData/notes/legacy.md'),false);assert.equal(isAllowedNotePath('TWData/notes/legacy.md',true),true);}finally{await fs.rm(f.root,{recursive:true,force:true});}
 });
+
+test('migration leaves a visible custom configuration folder and its backlinks unchanged', async () => {
+  const f = await fixture();
+  try {
+    const text = `[[${f.managed}]]\nPrivate configuration\n`;
+    await fs.mkdir(path.join(f.root, 'Configuration')); await fs.writeFile(path.join(f.root, 'Configuration/private.md'), text);
+    await migrateLegacyVault(f.root, { configDir: 'Configuration' });
+    assert.equal(await fs.readFile(path.join(f.root, 'Configuration/private.md'), 'utf8'), text);
+    const marker = JSON.parse(await fs.readFile(path.join(f.root, '.twdata/layout-migration.json'), 'utf8')) as { externalNotes: string[] };
+    assert.ok(!marker.externalNotes.some(relative => relative.startsWith('Configuration/')));
+  } finally { await fs.rm(f.root, { recursive: true, force: true }); }
+});
+
+test('resuming migration rejects a plan redirected into the custom configuration folder', async () => {
+  const f = await fixture();
+  try {
+    await fs.mkdir(path.join(f.root, 'Configuration')); await fs.writeFile(path.join(f.root, 'Configuration/private.md'), 'Private configuration');
+    await assert.rejects(() => migrateLegacyVault(f.root, { configDir: 'Configuration', fault(point) { if (point === 'after-prepared') throw new Error('Pause'); } }), /Pause/);
+    const markerPath = path.join(f.root, '.twdata/layout-migration.json');
+    const marker = JSON.parse(await fs.readFile(markerPath, 'utf8')) as { id: string; moves: unknown[]; prepared: { to: string }[]; aliases: unknown[]; externalNotes: string[]; baselines: unknown[]; retainedRoot: string; planHash: string };
+    marker.prepared[0].to = 'Configuration/private.md'; marker.externalNotes.push('Configuration/private.md');
+    marker.planHash = digest(stableJSON({ id: marker.id, moves: marker.moves, prepared: marker.prepared, aliases: marker.aliases, externalNotes: marker.externalNotes, baselines: marker.baselines, retainedRoot: marker.retainedRoot }));
+    await fs.writeFile(markerPath, JSON.stringify(marker));
+    await assert.rejects(() => migrateLegacyVault(f.root, { configDir: 'Configuration' }));
+    assert.equal(await fs.readFile(path.join(f.root, 'Configuration/private.md'), 'utf8'), 'Private configuration');
+    assert.equal(await fs.readFile(path.join(f.root, `TWData/projects/${f.p.id}/state.json`), 'utf8'), f.originalState.toString('utf8'));
+  } finally { await fs.rm(f.root, { recursive: true, force: true }); }
+});

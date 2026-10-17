@@ -64,6 +64,19 @@ test('vault preview never resolves network, executable URLs, OS traversal, confi
   } finally { await fs.rm(root, { recursive: true, force: true }); }
 });
 
+test('vault links protect the configured directory even when its name is visible', async () => {
+  const { root, links } = await fixture();
+  try {
+    await fs.mkdir(path.join(root, 'Configuration')); await fs.writeFile(path.join(root, 'Configuration/private.md'), 'Private');
+    const bridge = new VaultLinks(root, { ...links.host, find: () => ({ path: 'Configuration/private.md', basename: 'private', extension: 'md' }) }, 'Configuration');
+    for (const target of ['../Configuration/private.md', '/Configuration/private.md', 'private']) {
+      assert.equal(await bridge.resolve('Folder-1/note1.md', target), null);
+      await assert.rejects(() => bridge.open('Folder-1/note1.md', target));
+    }
+    assert.equal(await bridge.resolve('Configuration/private.md', '../Attachment/photo.png'), null);
+  } finally { await fs.rm(root, { recursive: true, force: true }); }
+});
+
 test('legacy aliases resolve relocated targets using the original source context only when direct lookup fails', async () => {
   const { root, links } = await fixture();
   try {

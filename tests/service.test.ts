@@ -191,6 +191,70 @@ test('configured note/resource roots persist centrally and cannot enter technica
   });
 });
 
+test('hidden and malformed configured roots are rejected before durable settings change', async () => {
+  await withService(async (service, _host, root) => {
+    await service.configurePaths({ notesRoot: 'Исследования/Заметки/custom', resourcesRoot: 'Исследования/Вложения/custom' });
+    const original = await fs.readFile(path.join(root, '.twdata/settings.json'));
+    for (const value of [
+      { notesRoot: 'Исследования/Заметки/.private', resourcesRoot: 'Исследования/Вложения/custom' },
+      { notesRoot: 'Исследования/Заметки/custom', resourcesRoot: 'Исследования/Вложения/.private' },
+      { notesRoot: 'Исследования/Заметки/_TraceWeave', resourcesRoot: 'Исследования/Вложения/custom' },
+      { notesRoot: 'Исследования/Заметки/custom', resourcesRoot: 'Исследования/Вложения/custom', unexpected: true },
+    ]) await assert.rejects(() => service.configurePaths(value));
+    assert.deepEqual(await fs.readFile(path.join(root, '.twdata/settings.json')), original);
+    await service.createProject('Settings remain usable'); await service.createNote('Visible note');
+    assert.ok(current(service).nodes[0].notePath.startsWith('Исследования/Заметки/custom/'));
+  });
+});
+
+test('import preserves filename whitespace while producing valid normalized asset titles', async () => {
+  await withService(async (service, host, root) => {
+    await service.createProject('Filenames'); const source = path.join(root, 'source.bin'); await fs.writeFile(source, Buffer.from([1, 128, 255]));
+    const names = [' leading.bin', 'trailing.bin ', '   ', '😀'.repeat(220) + '.bin'];
+    for (const name of names) host.sources.set(name, source);
+    await service.importFiles(names.map(name => new File([], name)));
+    const project = current(service);
+    assert.deepEqual(project.assets.map(asset => asset.originalName), names);
+    assert.deepEqual(project.assets.map(asset => asset.title), ['leading.bin', 'trailing.bin', 'Материал', '😀'.repeat(200)]);
+    assert.equal(project.blobs.length, 1); assert.deepEqual((await service.verifyAssets()).map(asset => asset.status), ['ok', 'ok', 'ok', 'ok']);
+  });
+});
+
+test('a visible custom Obsidian configuration directory cannot be listed, adopted or read', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'tw-custom-config-')), host = new FilesystemHost(root);
+  const service = new LocalWorkbench(new ProjectRepository(root, { configDir: 'Configuration' }), host);
+  try {
+    await fs.mkdir(path.join(root, 'Configuration')); await fs.writeFile(path.join(root, 'Configuration/private.md'), 'Private settings');
+    await fs.writeFile(path.join(root, 'Ordinary.md'), 'Ordinary'); await service.initialize(); await service.createProject('Config protection');
+    assert.deepEqual(service.listNotes().map(note => note.path), ['Ordinary.md']);
+    await assert.rejects(() => service.adoptNote('Configuration/private.md'), /Unsafe relative path/);
+    await assert.rejects(() => service.repository.readText('Configuration/private.md'), /Unsafe relative path/);
+    await assert.rejects(() => service.repository.atomicText('Configuration/private.md', 'Changed'), /Unsafe relative path/);
+    await service.adoptNote('Ordinary.md');
+    await assert.rejects(() => service.relinkNote(current(service).nodes[0].id, 'configuration/private.md'), /Unsafe relative path/);
+    assert.equal(await fs.readFile(path.join(root, 'Configuration/private.md'), 'utf8'), 'Private settings');
+  } finally { await service.dispose(); await fs.rm(root, { recursive: true, force: true }); }
+});
+
+test('archive import validates every final note destination before publishing into a custom configuration folder', async () => {
+  const sourceRoot = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'tw-import-source-')));
+  const source = new LocalWorkbench(new ProjectRepository(sourceRoot), new FilesystemHost(sourceRoot));
+  try {
+    await source.initialize();
+    await source.createProject('Portable source'); await source.createNote('Original note'); const archive = await source.exportProject();
+    const root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'tw-import-custom-config-'))), host = new FilesystemHost(root);
+    host.sources.set('backup.zip', path.join(sourceRoot, archive));
+    const service = new LocalWorkbench(new ProjectRepository(root, { configDir: 'Исследования/Заметки' }), host);
+    try {
+      await fs.mkdir(path.join(root, 'Исследования/Заметки'), { recursive: true }); await fs.writeFile(path.join(root, 'Исследования/Заметки/private.md'), 'Private configuration');
+      await service.initialize(); await assert.rejects(() => service.importArchive(new File([], 'backup.zip')), /Unsafe relative path/);
+      assert.deepEqual(await fs.readdir(path.join(root, 'Исследования/Заметки')), ['private.md']);
+      assert.equal(await fs.readFile(path.join(root, 'Исследования/Заметки/private.md'), 'utf8'), 'Private configuration');
+      assert.deepEqual(await service.repository.list(), []);
+    } finally { await service.dispose(); await fs.rm(root, { recursive: true, force: true }); }
+  } finally { await source.dispose(); await fs.rm(sourceRoot, { recursive: true, force: true }); }
+});
+
 test('external JSON edits at the same revision are detected before overwriting metadata', async () => {
   await withService(async (service, _host, root) => {
     await service.createProject('Первоначальный заголовок'); const p = current(service), external = structuredClone(p); external.title = 'Изменён извне';

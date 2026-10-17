@@ -5,6 +5,7 @@ import type { VaultLink, WorkbenchService } from '../types';
 import { safeExternalUrl } from './graphModel';
 import remarkWikiLinks from './remarkWikiLinks';
 import { t } from '../i18n';
+import { hasControlCharacters } from '../storage/layout';
 
 export const MAX_INLINE_IMAGE_BYTES = 32 * 1024 * 1024;
 const rasterMimes = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
@@ -26,7 +27,7 @@ export function notePreviewBody(text: string): string {
 export function isVaultDestination(raw: string): boolean {
   let decoded: string;
   try { decoded = decodeURIComponent(raw.trim()); } catch { return false; }
-  return decoded.length > 0 && !/^[a-z][a-z\d+.-]*:|^\/\/|[\x00-\x1f\x7f\\]/iu.test(decoded);
+  return decoded.length > 0 && !hasControlCharacters(decoded) && !/^[a-z][a-z\d+.-]*:|^\/\/|\\/iu.test(decoded);
 }
 function localResourceURL(url: string): boolean {
   try { const parsed=new URL(url);return parsed.protocol==='app:'||(parsed.protocol==='file:'&&['','localhost'].includes(parsed.hostname)); } catch { return false; }

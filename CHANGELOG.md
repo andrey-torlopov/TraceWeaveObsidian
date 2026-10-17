@@ -2,6 +2,19 @@
 
 Plugin versions and portable archive format versions are independent.
 
+## 0.1.5 — Community review fixes — 2026-10-17
+
+- Replace runtime schema compilation with build-time standalone validators, preserving archive and recovery validation.
+- Reject script elements and executable resource preloads in the pinned React DOM bundle; preserve dependency licenses inside `main.js`.
+- Add the official Obsidian ESLint checks with no warnings and a bundle check that disables string code generation.
+- Use searchable declarative settings and window-owned timers; retain typed Electron integration for desktop.
+- Protect the actual vault configuration directory, including visible custom locations, in notes, resources, imports and migrations.
+- Correct false-success draft flushes, unsafe configured paths, imported filenames with whitespace and late work after plugin unload.
+- Validate imported JSON and historical snapshot records without unsafe `any` propagation.
+- Build and attest release assets in GitHub Actions. Releases contain only `main.js`, `manifest.json` and `styles.css`; local ZIP packaging remains available.
+
+The Community directory approval is pending. Desktop-only operation, one writer, the `.twdata` backup requirement and existing ZIP link-rewriting limits remain applicable.
+
 ## 0.1.4 — English interface and screenshots — 2026-10-17
 
 - English and Russian interfaces, following the Obsidian language with an override in plugin settings.

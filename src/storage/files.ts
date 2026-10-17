@@ -3,12 +3,12 @@ import { constants } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import type { BlobRecord, MediaKind } from '../types';
-import { DATA_ROOT, RESOURCES_ROOT, TRANSITIONAL_METADATA_ROOT, LEGACY_METADATA_ROOT } from './layout';
+import { DATA_ROOT, RESOURCES_ROOT, TRANSITIONAL_METADATA_ROOT, LEGACY_METADATA_ROOT, hasControlCharacters, isConfigurationPath, isAllowedResourcePath } from './layout';
 
 export const MAX_ORIGINAL_BYTES = 536_870_912;
 export interface CopyOptions { signal?: AbortSignal; onProgress?: (completed: number, total: number) => void; originalName?: string; mimeType?: string }
-export function safeRelative(value: string): string {
-  if (!value || value !== value.normalize('NFC') || value.includes('\\') || /[\x00-\x1f\x7f:]/u.test(value) || path.posix.isAbsolute(value) || value.split('/').some(p => !p || p === '.' || p === '..' || /[. ]$/u.test(p))) throw new Error('Unsafe relative path');
+export function safeRelative(value: string, configDir?: string): string {
+  if (!value || value !== value.normalize('NFC') || value.includes('\\') || hasControlCharacters(value) || value.includes(':') || path.posix.isAbsolute(value) || value.split('/').some(p => !p || p === '.' || p === '..' || p.trim() !== p || /[. ]$/u.test(p)) || isConfigurationPath(value, configDir)) throw new Error('Unsafe relative path');
   return value;
 }
 export function requireId(id: string): void { if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/u.test(id)) throw new Error('Invalid UUID'); }
@@ -34,13 +34,13 @@ export async function verifiedMediaInfo(absolute: string, name: string): Promise
     : declared.mimeType === 'video/webm' ? bytes.subarray(0,4).equals(Buffer.from([26,69,223,163])) : false;
   return signature ? declared : { mimeType: 'application/octet-stream', mediaKind: 'file' };
 }
-export async function resolveSafe(root: string, relative: string, makeParents = false): Promise<string> {
-  safeRelative(relative);
+export async function resolveSafe(root: string, relative: string, makeParents = false, configDir?: string): Promise<string> {
+  safeRelative(relative, configDir);
   const absoluteRoot = await fs.realpath(root);
   let current = absoluteRoot;
   const parts = relative.split('/');
   for (let i = 0; i < parts.length; i++) {
-    current = path.join(current, parts[i]!);
+    current = path.join(current, parts[i]);
     try {
       const stat = await fs.lstat(current);
       if (stat.isSymbolicLink()) throw new Error('Symbolic links are not allowed in managed paths');
@@ -58,7 +58,8 @@ export async function digestFile(absolute: string, options: Pick<CopyOptions, 's
     const before = await handle.stat(); if (!before.isFile() || before.size > maxBytes) throw new Error('File is not regular or exceeds the size limit');
     const hash = createHash('sha256'); let byteSize = 0;
     for await (const chunk of handle.createReadStream({ autoClose: false, highWaterMark: 64 * 1024 })) {
-      options.signal?.throwIfAborted(); byteSize += (chunk as Buffer).length; if (byteSize > maxBytes) throw new Error('File exceeds size limit'); hash.update(chunk); options.onProgress?.(byteSize, before.size);
+      const bytes = chunk as Buffer;
+      options.signal?.throwIfAborted(); byteSize += bytes.length; if (byteSize > maxBytes) throw new Error('File exceeds size limit'); hash.update(bytes); options.onProgress?.(byteSize, before.size);
     }
     const after = await handle.stat();
     if (byteSize !== before.size || after.size !== before.size || after.mtimeMs !== before.mtimeMs || after.ctimeMs !== before.ctimeMs) throw new Error('Source file changed during reading');
@@ -91,13 +92,13 @@ export async function copyChecked(source: string, destination: string, expected?
   finally { await handle.close(); }
 }
 export class FileStore {
-  constructor(readonly vaultRoot: string, readonly metadataRoot = DATA_ROOT, readonly resourceRoot = RESOURCES_ROOT) { safeRelative(metadataRoot); safeRelative(resourceRoot); const allowed = [TRANSITIONAL_METADATA_ROOT, LEGACY_METADATA_ROOT].includes(metadataRoot) ? [RESOURCES_ROOT, 'TWData/resources', 'TraceWeave Resources'] : [RESOURCES_ROOT]; if (!allowed.some(root => resourceRoot === root || resourceRoot.startsWith(root + '/'))) throw new Error('Resource root must stay within the visible research attachments folder'); }
-  async resolve(relative: string): Promise<string> { return resolveSafe(this.vaultRoot, relative); }
+  constructor(readonly vaultRoot: string, readonly metadataRoot = DATA_ROOT, readonly resourceRoot = RESOURCES_ROOT, readonly configDir?: string) { safeRelative(metadataRoot, configDir); safeRelative(resourceRoot, configDir); const legacy = [TRANSITIONAL_METADATA_ROOT, LEGACY_METADATA_ROOT].includes(metadataRoot), allowed = legacy ? [RESOURCES_ROOT, 'TWData/resources', 'TraceWeave Resources'] : [RESOURCES_ROOT]; if (!isAllowedResourcePath(resourceRoot + "/original", legacy, configDir) || !allowed.some(root => resourceRoot === root || resourceRoot.startsWith(root + '/'))) throw new Error('Resource root must stay within the visible research attachments folder'); }
+  async resolve(relative: string): Promise<string> { return resolveSafe(this.vaultRoot, relative, false, this.configDir); }
   async importFile(sourcePath: string, projectId: string, knownBlobs: readonly BlobRecord[] = [], options: CopyOptions = {}): Promise<{ blob: BlobRecord; originalName: string }> {
     requireId(projectId); const originalName = (options.originalName ?? path.basename(sourcePath)).normalize('NFC');
-    if (!originalName || /[\x00-\x1f\x7f]/u.test(originalName) || [...originalName].length > 255) throw new Error('Invalid original filename');
+    if (!originalName || hasControlCharacters(originalName) || [...originalName].length > 255) throw new Error('Invalid original filename');
     const id = randomUUID(), relative = `${this.resourceRoot}/${projectId}/${id}/original${safeSuffix(originalName)}`;
-    const destination = await resolveSafe(this.vaultRoot, relative, true);
+    const destination = await resolveSafe(this.vaultRoot, relative, true, this.configDir);
     try {
       const proof = await copyChecked(sourcePath, destination, undefined, options);
       const previous = knownBlobs.find(blob => blob.sha256 === proof.sha256 && blob.byteSize === proof.byteSize);

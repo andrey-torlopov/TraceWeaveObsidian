@@ -2,12 +2,15 @@ import { t } from '../i18n';
 import * as path from 'node:path';
 import { parse, postprocess, preprocess } from 'micromark';
 import { decodeString } from 'micromark-util-decode-string';
+import { hasControlCharacters } from './layout';
 
 interface Replacement { start: number; end: number; value: string }
 /** Rewrite destinations only. Markdown spelling, prose, YAML, code and immutable report payloads stay intact. */
 export function rewriteMovedNoteLinks(text: string, oldPath: string, newPath: string, moves: ReadonlyMap<string, string>): string {
   if (Buffer.byteLength(text, 'utf8') > 5_242_880) throw new Error(t('Заметка превышает допустимый размер для переноса ссылок.', "The note exceeds the size limit for relocating links."));
-  const events = postprocess(parse().document().write(preprocess()(text, undefined, true)));
+  const tokenizer = parse().document();
+  const chunks: Parameters<typeof tokenizer.write>[0] = preprocess()(text, 'utf8', true);
+  const events = postprocess(tokenizer.write(chunks));
   const protectedRanges: { start: number; end: number }[] = [], replacements: Replacement[] = [];
   const yamlStart = /^(?:\uFEFF)?---\r?\n/u.exec(text);
   if (yamlStart) {
@@ -26,7 +29,7 @@ export function rewriteMovedNoteLinks(text: string, oldPath: string, newPath: st
     const uri = wiki ? raw : decodeString(raw), suffixAt = uri.search(/[?#]/u), suffix = suffixAt < 0 ? '' : uri.slice(suffixAt);
     let pathname: string;
     try { pathname = decodeURIComponent(suffixAt < 0 ? uri : uri.slice(0, suffixAt)); } catch { return raw; }
-    if (!pathname || /^[a-z][a-z\d+.-]*:|^\/\/|[\x00-\x1f\x7f\\]/iu.test(pathname)) return raw;
+    if (!pathname || hasControlCharacters(pathname) || /^[a-z][a-z\d+.-]*:|^\/\/|\\/iu.test(pathname)) return raw;
     const escapeLiteral = (value: string) => value.replace(/[%#?&>]/gu, character => '%' + character.charCodeAt(0).toString(16).toUpperCase());
     const rooted = pathname.startsWith('/'), relative = /^\.\.?\//u.test(pathname);
     const rootTarget = pathname.replace(/^\//u, '');
@@ -52,7 +55,7 @@ export function rewriteMovedNoteLinks(text: string, oldPath: string, newPath: st
     const start = token.start.offset, end = token.end.offset;
     if (protectedTypes.has(token.type)) protectedRanges.push({ start, end });
     if (token.type !== 'resourceDestinationString' && token.type !== 'definitionDestinationString') continue;
-    if (yamlStart && start < protectedRanges[0]!.end) continue;
+    if (yamlStart && start < protectedRanges[0].end) continue;
     const raw = text.slice(start, end), next = destination(raw, false, text[start - 1] === '<');
     if (next !== raw) replacements.push({ start, end, value: next });
   }
@@ -60,7 +63,7 @@ export function rewriteMovedNoteLinks(text: string, oldPath: string, newPath: st
     const start = match.index, end = start + match[0].length;
     let slashes = 0; for (let index = start - 1; index >= 0 && text[index] === '\\'; index--) slashes++;
     if (slashes % 2 || inRange(start, end)) continue;
-    const body = match[1]!, aliasAt = body.indexOf('|'), raw = aliasAt < 0 ? body : body.slice(0, aliasAt);
+    const body = match[1], aliasAt = body.indexOf('|'), raw = aliasAt < 0 ? body : body.slice(0, aliasAt);
     const leading = raw.match(/^\s*/u)![0], trailing = raw.match(/\s*$/u)![0], trimmed = raw.trim();
     const next = destination(trimmed, true, true);
     if (next !== trimmed) {

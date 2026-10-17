@@ -158,3 +158,39 @@ test('archive2 exports all typed current and historical attributes without uncon
  for(const historical of [false,true]){const invalid=structuredClone(raw),mutated={...files};(historical?invalid.snapshots[0].content.attributes:invalid.attributes)[0].nodeId=randomUUID();mutated['project.json']=Buffer.from(JSON.stringify(invalid));const manifest=JSON.parse(mutated['manifest.json']!.toString()),proof=manifest.files.find((entry:{path:string})=>entry.path==='project.json');proof.sha256=sha(mutated['project.json']);proof.byteSize=mutated['project.json'].length;mutated['manifest.json']=Buffer.from(JSON.stringify(manifest));await assert.rejects(stageImport(root,await zipBuffers(root,mutated)),historical?/Missing historical nodes reference/:/Missing nodes reference/);}
  const staged=await stageImport(root,archive);try{await staged.commit();const importedNode=staged.project.nodes[0]!;assert.notEqual(importedNode.attributes[0]!.id,attributes[0]!.id);assert.deepEqual(importedNode.attributes.map(({id,...attribute})=>attribute),project.nodes[0]!.attributes.map(({id,...attribute})=>attribute));const historical=JSON.parse(await fs.readFile(path.join(root,staged.project.snapshots[0]!.path),'utf8'));assert.equal(historical.content.attributes[0].value,'Captured text attribute');assert.ok(historical.content.attributes.every((attribute:{nodeId:string})=>attribute.nodeId===importedNode.id));await verifyReport(root,staged.project.snapshots[0]!);await exportTraceWeaveArchive(root,staged.project,path.join(root,'typed-attributes-again.zip'));}finally{await staged.rollback();}
 });
+
+test('backup JSON boundaries reject malformed manifests and payload metadata before materialization',async t=>{
+ const {root,project}=await fixture(t),data=JSON.stringify(project),file={path:'project.json',kind:'project',sha256:sha(data),byteSize:Buffer.byteLength(data)},base={format:'traceweave.obsidian-backup',formatVersion:'1.0',requiredFeatures:['centralized-metadata.v1'],sourceProjectId:project.id,sourceRevision:project.revision,files:[file]};
+ for(const invalid of [null,[],{...base,files:[null]},{...base,files:[{...file,byteSize:String(file.byteSize)}]},{...base,files:[{...file,kind:{toString:'note'}}]},{...base,files:[{...file,originalPath:[]}]}]){
+  const zip=await zipBuffers(root,{'project.json':data,'manifest.json':JSON.stringify(invalid)});await assert.rejects(stageImport(root,zip),/Expected JSON object|Invalid file proof|Invalid backup payload/);
+ }
+ assert.deepEqual(await fs.readdir(path.join(root,'Notes')),['Source.md']);
+});
+
+test('immutable local snapshots validate captured record shapes even when matching integrity hashes are supplied',async t=>{
+ const {root,project:initial}=await fixture(t),record=await createReport(root,initial,'Typed snapshot'),project=applyCommands(initial,[{kind:'snapshot.register',snapshot:record}]),snapshotPath=path.join(root,record.path),integrityPath=path.join(path.dirname(snapshotPath),'integrity.json');
+ const captured:{nodes:{attributes:unknown}[]}=JSON.parse(await fs.readFile(snapshotPath,'utf8'));captured.nodes[0]!.attributes='not-an-attribute-array';const text=JSON.stringify(captured);await fs.writeFile(snapshotPath,text);
+ const integrity:{snapshotSha256:string}=JSON.parse(await fs.readFile(integrityPath,'utf8'));integrity.snapshotSha256=sha(text);await fs.writeFile(integrityPath,JSON.stringify(integrity));
+ await verifyReport(root,record);await assert.rejects(exportTraceWeaveArchive(root,project,path.join(root,'malformed-capture.zip')),/Invalid immutable snapshot/);
+ assert.equal(await fs.readFile(snapshotPath,'utf8'),text);
+});
+
+test('archive exports accept lexical and canonical outputs under a vault with a symlinked parent',async t=>{
+ const {root,project}=await fixture(t),aliases=await fs.mkdtemp(path.join(os.tmpdir(),'tw-export-alias-'));t.after(()=>fs.rm(aliases,{recursive:true,force:true}));
+ const parentAlias=path.join(aliases,'parent');await fs.symlink(path.dirname(root),parentAlias,'dir');const vaultAlias=path.join(parentAlias,path.basename(root)),canonicalRoot=await fs.realpath(root);
+ for(const [name,write]of [['backup',exportProject],['archive2',exportTraceWeaveArchive]]as const){
+  for(const [style,outputRoot]of [['lexical',vaultAlias],['canonical',canonicalRoot]]as const){
+   const output=path.join(outputRoot,`${name}-${style}.zip`);await write(vaultAlias,project,output);const entries=await zipEntries(output);assert.ok(entries['manifest.json']);assert.ok(entries['project.json']);
+  }
+ }
+});
+
+test('archive export rejects symlinked output descendants and destinations outside either vault root spelling',async t=>{
+ const {root,project}=await fixture(t),outside=await fs.mkdtemp(path.join(os.tmpdir(),'tw-export-outside-'));t.after(()=>fs.rm(outside,{recursive:true,force:true}));
+ await fs.symlink(outside,path.join(root,'output-link'),'dir');
+ for(const write of [exportProject,exportTraceWeaveArchive]){
+  await assert.rejects(write(root,project,path.join(root,'output-link','unsafe.zip')),/Symbolic links/);
+  await assert.rejects(write(root,project,path.join(outside,'outside.zip')),/inside the vault/);
+ }
+ assert.deepEqual(await fs.readdir(outside),[]);
+});

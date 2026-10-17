@@ -2,10 +2,11 @@ import { t } from '../i18n';
 
 export interface DraftPersistence {
   loadDrafts(projectId?: string): Promise<Record<string, unknown>>;
-  saveDraft(key: string, value: unknown | null): Promise<void>;
+  saveDraft(key: string, value: unknown): Promise<void>;
 }
 export interface DraftStatus { hydrated: boolean; loading: boolean; pending: number; error: string | null; saved: boolean }
-interface PendingWrite { version: number; value: unknown | null }
+interface PendingWrite { version: number; value: unknown }
+interface DraftWindow { setTimeout(callback: () => void, delay: number): number; clearTimeout(timer: number): void }
 const EMPTY_STATUS: DraftStatus = Object.freeze({ hydrated: false, loading: false, pending: 0, error: null, saved: false });
 const FORMAT = 'traceweave.metadata-draft';
 const message = (error: unknown) => error instanceof Error ? error.message : String(error);
@@ -21,8 +22,10 @@ export class MetadataDraftStore {
   private readonly pending = new Map<string, PendingWrite>();
   private persistence: DraftPersistence | null = null;
   private version = 0;
-  private timer: ReturnType<typeof setTimeout> | null = null;
+  private timer: number | null = null;
   private flushing: Promise<void> | null = null;
+  constructor(private readonly ownerWindow?: DraftWindow) {}
+  private get window(): DraftWindow { return this.ownerWindow ?? window; }
   subscribe = (listener: () => void): (() => void) => { this.listeners.add(listener); return () => this.listeners.delete(listener); };
   get<T>(key: string): T | undefined { return this.drafts.get(key) as T | undefined; }
   has(key: string): boolean { return this.drafts.has(key); }
@@ -63,32 +66,33 @@ export class MetadataDraftStore {
     this.hydration.set(projectId, work); return work;
   }
   async flush(projectId?: string): Promise<void> {
-    if (this.timer) { clearTimeout(this.timer); this.timer = null; }
+    if (this.timer !== null) { this.window.clearTimeout(this.timer); this.timer = null; }
     if (!this.persistence) return;
     if (this.flushing) { await this.flushing; if (this.hasPending(projectId)) return this.flush(projectId); return; }
     const persistence = this.persistence;
     const work = (async () => {
-      const failed = new Set<string>(), failedScopes = new Set<string>(); let firstError: unknown;
+      const failed = new Set<string>(), failedScopes = new Set<string>(); let firstError: Error | undefined;
       while (this.hasPending(projectId)) {
         const entry = [...this.pending].find(([key]) => !failed.has(key) && (!projectId || key.startsWith(`${projectId}/`)));
         if (!entry) break;
-        const [key, write] = entry, scope = key.split('/')[0]!;
+        const [key, write] = entry, scope = key.split('/')[0];
         try {
           await persistence.saveDraft(key, write.value);
           if (this.pending.get(key)?.version === write.version) this.pending.delete(key);
           this.updateStatus(scope, { ...(!failedScopes.has(scope) ? { error: null } : {}), pending: this.countPending(scope), saved: this.countPending(scope) === 0 });
         } catch (error) {
-          this.updateStatus(scope, { error: message(error), pending: this.countPending(scope), saved: false });
-          failed.add(key); failedScopes.add(scope); firstError ??= error;
+          const failure = error instanceof Error ? error : new Error(message(error));
+          this.updateStatus(scope, { error: failure.message, pending: this.countPending(scope), saved: false });
+          failed.add(key); failedScopes.add(scope); firstError ??= failure;
         }
       }
-      if (firstError) throw firstError;
+      if (firstError !== undefined) throw firstError;
     })();
     this.flushing = work;
     try { await work; } finally { this.flushing = null; }
   }
-  private queue(key: string, value: unknown | null): void {
-    const projectId = key.split('/')[0]!;
+  private queue(key: string, value: unknown): void {
+    const projectId = key.split('/')[0];
     if (projectId === 'vault') return; // No project exists yet; its creation form is kept in memory.
     this.pending.set(key, { version: ++this.version, value });
     this.updateStatus(projectId, { pending: this.countPending(projectId), saved: false });
@@ -97,8 +101,8 @@ export class MetadataDraftStore {
   private countPending(projectId: string): number { return [...this.pending.keys()].filter((key) => key.startsWith(`${projectId}/`)).length; }
   private hasPending(projectId?: string): boolean { return projectId ? this.countPending(projectId) > 0 : this.pending.size > 0; }
   private schedule(): void {
-    if (this.timer) clearTimeout(this.timer);
-    this.timer = setTimeout(() => { this.timer = null; void this.flush().catch(() => { /* flush exposes the exact failure through the subscribed status. */ }); }, 150);
+    if (this.timer !== null) this.window.clearTimeout(this.timer);
+    this.timer = this.window.setTimeout(() => { this.timer = null; void this.flush().catch(() => { /* flush exposes the exact failure through the subscribed status. */ }); }, 150);
   }
   private updateStatus(projectId: string, changes: Partial<DraftStatus>): void {
     this.statuses.set(projectId, { ...this.status(projectId), ...changes }); this.notify();

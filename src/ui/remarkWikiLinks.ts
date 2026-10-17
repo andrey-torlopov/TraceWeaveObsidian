@@ -21,7 +21,7 @@ export default function remarkWikiLinks() {
       for (const node of parent.children) {
         if(node.type==='html'){
           for(const match of (node.value??'').matchAll(/<(\/?)([a-z][\w:-]*)(?:\s[^<>]*?)?\/?>/giu)){
-            const tag=match[2]!.toLowerCase();if(match[1]){const at=htmlTags.lastIndexOf(tag);if(at>=0)htmlTags.splice(at);}else if(!voidTags.has(tag)&&!match[0].endsWith('/>'))htmlTags.push(tag);
+            const tag=match[2].toLowerCase();if(match[1]){const at=htmlTags.lastIndexOf(tag);if(at>=0)htmlTags.splice(at);}else if(!voidTags.has(tag)&&!match[0].endsWith('/>'))htmlTags.push(tag);
           }
           children.push(node);continue;
         }
@@ -32,7 +32,7 @@ export default function remarkWikiLinks() {
         const source = node.value, pattern = /(!?)\[\[([^\]\r\n]+)\]\]/gu;
         let cursor = 0;
         for (const match of source.matchAll(pattern)) {
-          const index = match.index, content = match[2]!, separator = content.indexOf('|');
+          const index = match.index, content = match[2], separator = content.indexOf('|');
           const target = (separator < 0 ? content : content.slice(0, separator)).trim();
           const alias = separator < 0 ? target : content.slice(separator + 1).trim() || target;
           if (!target || (index > 0 && source[index - 1] === '\\')) continue;

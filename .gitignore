@@ -1,6 +1,7 @@
 node_modules/
 main.js
 main.js.map
+src/generated/*.js
 release/
 coverage/
 var/

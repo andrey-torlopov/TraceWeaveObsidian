@@ -32,6 +32,8 @@ Opening an external URL is an explicit action handled by the host application. I
 
 When importing, TraceWeave reads only the files or ZIP selected by you, including selections outside the vault, and copies the required data into the vault. It does not mount a permanent external folder. To connect an editable note, first place that note and its relative resources inside the vault.
 
+The desktop plugin uses Node.js filesystem APIs for hidden metadata, atomic journals, hashing and streaming archives. The vault-note picker enumerates Markdown file paths through the public Vault API; it does not upload their contents. Configuration files are excluded using the vault's actual configuration directory, including custom visible locations. These capabilities can appear as informational filesystem-access or vault-enumeration notices during review. Schema validators are compiled at build time; the installed bundle has no runtime schema compiler, and its React renderer rejects script elements and executable preloads.
+
 ## Access and Integrity
 
 Files are not encrypted by TraceWeave. Anyone with filesystem access to the vault can read notes, originals, exports and hidden metadata. Use the operating system's access controls and encryption where needed. Keep sensitive vaults and backup ZIPs out of public source repositories.

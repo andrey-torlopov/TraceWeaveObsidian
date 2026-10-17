@@ -53,6 +53,13 @@ for (const path of ['../Note.md', '/Note.md', 'Notes/../Note.md', 'Notes//Note.m
   test(`unsafe note path is rejected: ${JSON.stringify(path)}`, () => expectError(() => applyCommands(empty(), [create(10, { notePath: path })]), 'unsafe_path'));
 }
 
+test('path validation rejects every ASCII control character and preserves Unicode filenames', () => {
+  for (const code of [...Array.from({ length: 32 }, (_value, index) => index), 127]) {
+    expectError(() => validateRelativePath(`Notes/a${String.fromCharCode(code)}b.md`, 'note', true), 'unsafe_path');
+  }
+  validateRelativePath('Notes/Кириллица 🧪.md', 'note', true);
+});
+
 test('note bindings are unique across case/NFC and metadata lives outside ordinary notes', () => {
   expectError(() => applyCommands(empty(), [create(10, { notePath: 'Notes/Test.md' }), create(11, { notePath: 'notes/test.MD' })]), 'duplicate_note');
   expectError(() => applyCommands(empty(), [create(10, { notePath: 'Notes/e\u0301.md' })]), 'unsafe_path');

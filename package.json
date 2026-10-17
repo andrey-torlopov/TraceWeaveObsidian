@@ -1,6 +1,6 @@
 {
   "name": "traceweave-obsidian",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Local research graph for Obsidian with centralized metadata and ordinary Markdown notes.",
   "private": true,
   "license": "MIT",
@@ -15,7 +15,12 @@
     "dev": "node scripts/build.mjs --watch",
     "package": "npm run build && node scripts/package.mjs",
     "install:local": "node scripts/install-local.mjs",
-    "verify:public": "node scripts/verify-publication.mjs"
+    "verify:public": "node scripts/verify-publication.mjs",
+    "generate:validators": "node scripts/generate-validators.mjs",
+    "pretypecheck": "npm run generate:validators",
+    "pretest": "npm run generate:validators",
+    "predev": "npm run generate:validators",
+    "lint": "eslint src package.json --max-warnings 0"
   },
   "dependencies": {
     "@xyflow/react": "12.12.0",
@@ -31,15 +36,25 @@
     "yazl": "3.3.1"
   },
   "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "@eslint/json": "0.14.0",
     "@types/node": "24.19.1",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@types/yauzl": "2.10.3",
     "@types/yazl": "2.4.5",
     "esbuild": "0.28.2",
+    "eslint": "10.13.0",
+    "eslint-plugin-obsidianmd": "0.4.2",
     "happy-dom": "21.0.3",
     "obsidian": "1.14.4",
     "tsx": "4.23.15",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.71.2"
+  },
+  "overrides": {
+    "eslint-plugin-obsidianmd": {
+      "obsidian": "$obsidian"
+    }
   }
 }

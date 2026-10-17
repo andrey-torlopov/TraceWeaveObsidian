@@ -3,10 +3,10 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { applyCommands, createProject, searchProject, DomainError } from './domain';
 import type { Asset, Command, ID, Project, ResourceCandidate, SnapshotRecord, ViewState, VaultLink, WorkbenchService, WorkbenchSnapshot } from './types';
-import { FileStore, digestFile, resolveSafe, safeRelative } from './storage/files';
+import { FileStore, resolveSafe, safeRelative } from './storage/files';
 import { ProjectRepository, digest, stableJSON, strictJSON } from './storage/repository';
 import { exportProject, exportTraceWeaveArchive, stageImport, createReport, verifyReport } from './portability';
-import { DATA_ROOT, NOTES_ROOT, RESOURCES_ROOT, isAllowedNotePath, isAllowedResourcePath } from './storage/layout';
+import { DATA_ROOT, NOTES_ROOT, RESOURCES_ROOT, hasControlCharacters, isConfigurationPath, isAllowedNotePath, isAllowedResourcePath } from './storage/layout';
 import { migrateLegacyVault } from './storage/migration';
 import { caseFold } from './casefold';
 import { t } from './i18n';
@@ -30,7 +30,7 @@ export class LocalWorkbench implements WorkbenchService {
   private searchCache = new Map<string, { hash: string; text: string }>();
   files: FileStore;
   paths = { notesRoot: NOTES_ROOT, resourcesRoot: RESOURCES_ROOT };
-  constructor(readonly repository: ProjectRepository, readonly host: Host) { this.files = new FileStore(repository.vaultRoot); }
+  constructor(readonly repository: ProjectRepository, readonly host: Host) { this.files = new FileStore(repository.vaultRoot, DATA_ROOT, RESOURCES_ROOT, repository.configDir); }
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   getSnapshot = () => this.state;
   private publish(change: Partial<WorkbenchSnapshot>) { this.state = Object.freeze({ ...this.state, ...change }); this.listeners.forEach(listener => listener()); }
@@ -52,19 +52,20 @@ export class LocalWorkbench implements WorkbenchService {
     this.publish({ project, projects, canUndo: stacks.undo.length > 0 && project?.status === 'active', canRedo: stacks.redo.length > 0 && project?.status === 'active' });
   }
   async initialize() {
-    if (this.repository.metadataRoot === DATA_ROOT) await migrateLegacyVault(this.repository.vaultRoot);
+    if (this.repository.metadataRoot === DATA_ROOT) await migrateLegacyVault(this.repository.vaultRoot, { configDir: this.repository.configDir });
     try { await this.repository.initialize(); } catch (error) { this.publish({ error: error instanceof Error ? error.message : t('Требуется восстановление.', "Recovery is required.") }); }
-    try { const value = strictJSON<{ notesRoot: string; resourcesRoot: string }>(await this.repository.readText(`${DATA_ROOT}/settings.json`, 16_384)); this.validatePaths(value); this.paths = value; this.files = new FileStore(this.repository.vaultRoot, DATA_ROOT, value.resourcesRoot); } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+    try { const value = strictJSON<{ notesRoot: string; resourcesRoot: string }>(await this.repository.readText(`${DATA_ROOT}/settings.json`, 16_384)); this.validatePaths(value); this.paths = value; this.files = new FileStore(this.repository.vaultRoot, DATA_ROOT, value.resourcesRoot, this.repository.configDir); } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
     await this.refresh();
     if (this.repository.issues.length) this.publish({ error: this.repository.issues.join('\n') });
     if (this.state.projects[0]) { const p = await this.repository.read(this.state.projects[0].id); await this.refresh(p); if (!this.repository.needsRecovery) await this.reconcileProject(); }
   }
   private validatePaths(value: { notesRoot: string; resourcesRoot: string }) {
+    if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).some(key => !['notesRoot', 'resourcesRoot'].includes(key)) || typeof value.notesRoot !== 'string' || typeof value.resourcesRoot !== 'string' || !isAllowedNotePath(value.notesRoot + '/note.md', false, this.repository.configDir) || !isAllowedResourcePath(value.resourcesRoot, false, this.repository.configDir)) throw new DomainError('unsafe_path', t('Выберите видимые папки вне настроек и служебных данных.', 'Choose visible folders outside configuration and metadata.'));
     for (const [root, allowed] of [[value.notesRoot, NOTES_ROOT], [value.resourcesRoot, RESOURCES_ROOT]]) { safeRelative(root); if (root !== allowed && !root.startsWith(allowed + '/')) throw new Error(t('Созданные плагином файлы должны оставаться в Исследования/Заметки и Исследования/Вложения.', "Files created by the plugin must remain in Исследования/Заметки and Исследования/Вложения.")); }
     const noteKey = value.notesRoot.normalize('NFC').toLowerCase(), resourceKey = value.resourcesRoot.normalize('NFC').toLowerCase();
     if (noteKey === resourceKey || noteKey.startsWith(resourceKey + '/') || resourceKey.startsWith(noteKey + '/')) throw new Error(t('Выберите раздельные папки заметок и материалов.', "Choose separate folders for notes and materials."));
   }
-  configurePaths(value: { notesRoot: string; resourcesRoot: string }) { return this.run(async () => { this.validatePaths(value); await this.repository.atomicText(`${DATA_ROOT}/settings.json`, stableJSON(value)); this.paths = value; this.files = new FileStore(this.repository.vaultRoot, DATA_ROOT, value.resourcesRoot); }); }
+  configurePaths(value: { notesRoot: string; resourcesRoot: string }) { return this.run(async () => { this.validatePaths(value); const files = new FileStore(this.repository.vaultRoot, DATA_ROOT, value.resourcesRoot, this.repository.configDir); await this.repository.atomicText(`${DATA_ROOT}/settings.json`, stableJSON(value)); this.paths = { ...value }; this.files = files; }); }
   /** Transient success text belongs to the old UI locale; preserve errors and all research state. */
   refreshLanguage(): void { this.publish({ message: '' }); }
   async dispose() { this.disposed = true; this.controller?.abort(); await this.tail; await this.draftTail; this.listeners.clear(); await this.repository.dispose(); }
@@ -72,7 +73,10 @@ export class LocalWorkbench implements WorkbenchService {
   openProject(id: ID) { return this.run(async () => { const project = await this.repository.read(id); this.searchCache.clear(); await this.refresh(project); await this.reconcileProject(); }); }
   execute(commands: Command[]) { return this.run(async () => { const p = this.project(); const next = await this.repository.execute(p.id, commands, { baseRevision: p.revision, expectedStateHash: digest(stableJSON(p)) }); await this.refresh(next); this.publish({ message: t('Метаданные сохранены.', "Metadata saved.") }); }); }
   private notePath(p: Project, title: string, id: string) {
-    const clean = (value: string) => [...value.normalize('NFC').replace(/[<>:"/\\|?*\x00-\x1f\x7f]/gu, '-').trim().replace(/[. ]+$/gu, '')].slice(0, 70).join('') || 'Заметка';
+    const clean = (value: string) => {
+      const sanitized = [...value.normalize('NFC')].map(character => hasControlCharacters(character) || /[<>:"/\\|?*]/u.test(character) ? '-' : character).join('').trim().replace(/[. ]+$/gu, '');
+      return [...sanitized].slice(0, 70).join('') || 'Заметка';
+    };
     return `${this.paths.notesRoot}/${clean(p.title)}--${p.id.slice(0, 8)}/${clean(title)}--${id.slice(0, 8)}.md`;
   }
   createNote(title: string, typeId?: ID): Promise<ID> { return this.run(async () => {
@@ -96,7 +100,7 @@ export class LocalWorkbench implements WorkbenchService {
     }
   }
   adoptNote(notePath: string) { return this.run(async () => {
-    const p = this.project(); safeRelative(notePath); if (!isAllowedNotePath(notePath)) throw new DomainError('unsafe_note',t('Заметка должна находиться вне скрытых и служебных папок.', "The note must be outside hidden and technical folders.")); await this.assertUnbound(notePath);
+    const p = this.project(); safeRelative(notePath, this.repository.configDir); if (!isAllowedNotePath(notePath, false, this.repository.configDir)) throw new DomainError('unsafe_note',t('Заметка должна находиться вне скрытых и служебных папок.', "The note must be outside hidden and technical folders.")); await this.assertUnbound(notePath);
     const text = await this.repository.readText(notePath, 5_242_880); const id = randomUUID();
     const title = path.posix.basename(notePath, '.md');
     const next = await this.repository.execute(p.id, [{ kind: 'node.create', id, title, notePath, noteHash: digest(text), x: (p.nodes.length % 4) * 280, y: Math.floor(p.nodes.length / 4) * 150 }], { baseRevision: p.revision, expectedStateHash: digest(stableJSON(p)) });
@@ -104,27 +108,27 @@ export class LocalWorkbench implements WorkbenchService {
   }); }
   async openNote(nodeId: ID) { const node = this.project().nodes.find(n => n.id === nodeId); if (!node) throw new Error(t('Документ не найден.', "Document not found.")); if (node.missing) throw new Error(t('Файл заметки не найден. Переподключите его.', "The note file was not found. Relink it.")); await this.host.openNote(node.notePath); }
   async readNote(nodeId: ID) { const p = this.project(), node = p.nodes.find(n => n.id === nodeId); if (!node) throw new Error(t('Документ не найден.', "Document not found.")); return this.repository.readText(node.notePath, 5_242_880); }
-  listNotes() { const resources = caseFold(this.paths.resourcesRoot); return this.host.listNotes().filter(note => { const relative = caseFold(note.path); return isAllowedNotePath(note.path) && relative !== resources && !relative.startsWith(resources + '/'); }); }
+  listNotes() { const resources = caseFold(this.paths.resourcesRoot); return this.host.listNotes().filter(note => { const relative = caseFold(note.path); return isAllowedNotePath(note.path, false, this.repository.configDir) && relative !== resources && !relative.startsWith(resources + '/'); }); }
   async resolveVaultLink(sourcePath: string, link: string): Promise<VaultLink | null> { if (!this.host.resolveVaultLink) throw new DomainError('host_unavailable', t('Хост не предоставляет разрешение ссылок Obsidian.', "The host does not support resolving Obsidian links.")); return this.host.resolveVaultLink(sourcePath, link); }
   async openVaultLink(sourcePath: string, link: string): Promise<void> { if (!this.host.openVaultLink) throw new DomainError('host_unavailable', t('Хост не предоставляет открытие ссылок Obsidian.', "The host does not support opening Obsidian links.")); await this.host.openVaultLink(sourcePath, link); }
   relinkNote(nodeId: ID, notePath: string) { return this.run(async () => {
-    const p = this.project(); safeRelative(notePath); if (!isAllowedNotePath(notePath)) throw new DomainError('unsafe_note',t('Заметка должна находиться вне скрытых и служебных папок.', "The note must be outside hidden and technical folders.")); await this.assertUnbound(notePath, nodeId); const text = await this.repository.readText(notePath, 5_242_880);
+    const p = this.project(); safeRelative(notePath, this.repository.configDir); if (!isAllowedNotePath(notePath, false, this.repository.configDir)) throw new DomainError('unsafe_note',t('Заметка должна находиться вне скрытых и служебных папок.', "The note must be outside hidden and technical folders.")); await this.assertUnbound(notePath, nodeId); const text = await this.repository.readText(notePath, 5_242_880);
     const next = await this.repository.execute(p.id, [{ kind: 'node.update', nodeId, changes: { notePath, noteHash: digest(text), missing: false } }], { baseRevision: p.revision, expectedStateHash: digest(stableJSON(p)), kind: 'reconcile' });
     await this.refresh(next); this.publish({ message: t('Файл переподключён. Идентичность узла и его связи сохранены.', "File relinked. The node identity and its relationships were preserved.") });
   }); }
   async onRenamed(newPath: string, oldPath: string) { return this.run(async () => {
-    safeRelative(newPath); safeRelative(oldPath);
+    safeRelative(newPath, this.repository.configDir); safeRelative(oldPath, this.repository.configDir);
     for (const summary of await this.repository.list()) {
       const p = await this.repository.read(summary.id);
       const affected = p.nodes.filter(n => n.notePath === oldPath || n.notePath.startsWith(oldPath + '/'));
-      if (affected.some(node => !isAllowedNotePath(newPath + node.notePath.slice(oldPath.length)))) throw new DomainError('unsafe_note',t('Заметку нельзя переместить в скрытую или служебную папку.', "A note cannot be moved into a hidden or technical folder."));
+      if (affected.some(node => !isAllowedNotePath(newPath + node.notePath.slice(oldPath.length), false, this.repository.configDir))) throw new DomainError('unsafe_note',t('Заметку нельзя переместить в скрытую или служебную папку.', "A note cannot be moved into a hidden or technical folder."));
       const commands: Command[] = affected.map(n => ({ kind: 'node.update', nodeId: n.id, changes: { notePath: newPath + n.notePath.slice(oldPath.length), missing: false } }));
       const blobs = p.blobs.filter(blob => blob.path === oldPath || blob.path.startsWith(oldPath + '/'));
       let replacement: Project | undefined;
       if (blobs.length) {
         this.repository.assertWritable(p.id); replacement = commands.length ? applyCommands(p,commands) : structuredClone(p);
         for (const blob of blobs) {
-          const nextPath = newPath + blob.path.slice(oldPath.length); if (!isAllowedResourcePath(nextPath)) throw new DomainError('unsafe_path',t('Оригинал нельзя переместить в скрытую или служебную папку.', "An original cannot be moved into a hidden or technical folder."));
+          const nextPath = newPath + blob.path.slice(oldPath.length); if (!isAllowedResourcePath(nextPath, false, this.repository.configDir)) throw new DomainError('unsafe_path',t('Оригинал нельзя переместить в скрытую или служебную папку.', "An original cannot be moved into a hidden or technical folder."));
           if (await this.files.verify({...blob,path:nextPath}) !== 'ok') throw new DomainError('original_conflict',t('Оригинал после переименования недоступен или изменён. Привязка не изменена.', "The original is unavailable or changed after renaming. Its binding was not changed."));
           replacement.blobs.find(item => item.id === blob.id)!.path = nextPath;
         }
@@ -166,13 +170,13 @@ export class LocalWorkbench implements WorkbenchService {
     } finally { this.controller = null; }
   }); }
   cancelImport() { this.controller?.abort(); }
-  private asset(blob: Project['blobs'][number], name: string): Asset { return { id: randomUUID(), blobId: blob.id, originalName: name, title: [...name].slice(0, 200).join(''), mimeType: blob.mimeType, mediaKind: blob.mediaKind, byteSize: blob.byteSize, sha256: blob.sha256, createdAt: new Date().toISOString(), deletedAt: null, deletionBatchId: null, sourceUrl: null, sourceAuthor: null, sourceCreatedAt: null, noteMarkdown: '', origin: { kind: 'manual' } }; }
+  private asset(blob: Project['blobs'][number], name: string): Asset { const title = [...name.normalize('NFC').trim()].slice(0, 200).join('').trim() || t('Материал', 'Material'); return { id: randomUUID(), blobId: blob.id, originalName: name, title, mimeType: blob.mimeType, mediaKind: blob.mediaKind, byteSize: blob.byteSize, sha256: blob.sha256, createdAt: new Date().toISOString(), deletedAt: null, deletionBatchId: null, sourceUrl: null, sourceAuthor: null, sourceCreatedAt: null, noteMarkdown: '', origin: { kind: 'manual' } }; }
   async discoverResources(): Promise<ResourceCandidate[]> {
-    const p = this.project(), relative = this.paths.resourcesRoot, root = await resolveSafe(this.repository.vaultRoot, relative);
+    const p = this.project(), relative = this.paths.resourcesRoot, root = await resolveSafe(this.repository.vaultRoot, relative, false, this.repository.configDir);
     const registered = new Set(p.blobs.map(b => b.path)), found: ResourceCandidate[] = [];
     const walk = async (directory: string, rel: string) => {
       const entries = await fs.readdir(directory, { withFileTypes: true });
-      for (const e of entries) { if (found.length >= 50_000) throw new Error(t('Каталог превышает лимит 50000 файлов.', "The folder exceeds the limit of 50000 files.")); if (e.isSymbolicLink()) continue; const next = `${rel}/${e.name}`; if (e.isDirectory()) await walk(path.join(directory, e.name), next); else if (e.isFile()) found.push({ path: next, byteSize: (await fs.stat(await resolveSafe(this.repository.vaultRoot, next))).size, registered: registered.has(next) }); }
+      for (const e of entries) { if (found.length >= 50_000) throw new Error(t('Каталог превышает лимит 50000 файлов.', "The folder exceeds the limit of 50000 files.")); const next = `${rel}/${e.name}`; if (e.isSymbolicLink() || e.name.startsWith('.') || isConfigurationPath(next, this.repository.configDir)) continue; if (e.isDirectory()) await walk(path.join(directory, e.name), next); else if (e.isFile()) found.push({ path: next, byteSize: (await fs.stat(await resolveSafe(this.repository.vaultRoot, next, false, this.repository.configDir))).size, registered: registered.has(next) }); }
     };
     try { await walk(root, relative); } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
     return found;
@@ -180,7 +184,7 @@ export class LocalWorkbench implements WorkbenchService {
   registerResource(relative: string, nodeId?: ID) { return this.run(async () => {
     const p = this.project(); this.repository.assertWritable(p.id); if (p.status === 'archived') throw new Error(t('Исследование в архиве.', "The research project is archived.")); if (!relative.startsWith(`${this.paths.resourcesRoot}/`)) throw new Error(t('Файл находится вне настроенной папки материалов.', "The file is outside the configured materials folder."));
     if (p.blobs.some(b => b.path === relative)) throw new Error(t('Файл уже зарегистрирован. Прикрепите его из библиотеки.', "The file is already registered. Attach it from the library."));
-    const source = await resolveSafe(this.repository.vaultRoot, relative);
+    const source = await resolveSafe(this.repository.vaultRoot, relative, false, this.repository.configDir);
     const result = await this.files.importFile(source, p.id, p.blobs); const asset = this.asset(result.blob, path.posix.basename(relative));
     const commands: Command[] = [{ kind: 'asset.register', asset, blob: result.blob }];
     if (nodeId) commands.push({ kind: 'attachment.attach', attachment: { id: randomUUID(), nodeId, assetId: asset.id, role: 'attachment', sortOrder: p.attachments.filter(a => a.nodeId === nodeId).length, caption: null } });
@@ -207,17 +211,20 @@ export class LocalWorkbench implements WorkbenchService {
   async openReport(id: ID) { const report = this.project().snapshots.find(s => s.id === id); if (!report) throw new Error(t('Снимок не найден.', "Snapshot not found.")); await verifyReport(this.repository.vaultRoot, report); await this.host.openNote(report.path.replace(/snapshot\.json$/u, 'report.md')); }
   exportProject(): Promise<string> { return this.run(async () => {
     this.repository.assertWritable(this.project().id); await this.reconcileProject(); const p = this.project();
-    const relative = `${DATA_ROOT}/exports/${p.id}-${p.revision}-${randomUUID()}.zip`, absolute = await resolveSafe(this.repository.vaultRoot, relative, true);
+    const relative = `${DATA_ROOT}/exports/${p.id}-${p.revision}-${randomUUID()}.zip`, absolute = await resolveSafe(this.repository.vaultRoot, relative, true, this.repository.configDir);
     await exportProject(this.repository.vaultRoot, p, absolute); await this.host.showFile(relative); this.publish({ message: t('Полная переносимая копия создана.', "Complete portable copy created.") }); return relative;
   }); }
   exportTraceWeave(): Promise<string> { return this.run(async () => {
     this.repository.assertWritable(this.project().id); await this.reconcileProject(); const p = this.project();
-    const relative = `${DATA_ROOT}/exports/traceweave-${p.id}-${p.revision}-${randomUUID()}.zip`, absolute = await resolveSafe(this.repository.vaultRoot, relative, true);
+    const relative = `${DATA_ROOT}/exports/traceweave-${p.id}-${p.revision}-${randomUUID()}.zip`, absolute = await resolveSafe(this.repository.vaultRoot, relative, true, this.repository.configDir);
     await exportTraceWeaveArchive(this.repository.vaultRoot, p, absolute); await this.host.showFile(relative); this.publish({ message: t('Архив TraceWeave 2.0 создан.', "TraceWeave 2.0 archive created.") }); return relative;
   }); }
   importArchive(file: File) { return this.run(async () => {
     this.repository.assertWritable(); const staged = await stageImport(this.repository.vaultRoot, await this.host.filePath(file));
-    try { await staged.commit(); await this.repository.add(staged.project); }
+    try {
+      for (const relative of [...staged.project.nodes.map(node => node.notePath), ...staged.project.blobs.map(blob => blob.path)]) safeRelative(relative, this.repository.configDir);
+      await staged.commit(); await this.repository.add(staged.project);
+    }
     catch (error) { this.publish({ message: t('Импорт не опубликован. Подготовленные файлы сохранены для восстановления; исходные заметки не перезаписаны.', "The import was not committed. Prepared files were kept for recovery; original notes were not overwritten.") }); throw error; }
     await this.refresh(staged.project); const warnings = staged.project.importedData.warnings; this.publish({ message: t('Проект импортирован с новыми ID.', "Project imported with new IDs.") + (Array.isArray(warnings) && warnings.length ? '\n' + warnings.join('\n') : '') });
   }); }
@@ -232,10 +239,10 @@ export class LocalWorkbench implements WorkbenchService {
       return stored.drafts;
     } catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return {}; throw error; }
   }
-  saveDraft(key: string, value: unknown | null): Promise<void> {
+  saveDraft(key: string, value: unknown): Promise<void> {
     const id = key.split('/')[0];
     const next = this.draftTail.then(async () => {
-      if (!id || key.length > 1024 || /[\x00-\x1f]/u.test(key)) throw new Error(t('Неверный ключ черновика.', "Invalid draft key."));
+      if (!id || key.length > 1024 || hasControlCharacters(key)) throw new Error(t('Неверный ключ черновика.', "Invalid draft key."));
       const drafts = await this.loadDrafts(id);
       if (value === null) delete drafts[key]; else {
         const validateJSON = (input: unknown, seen = new Set<object>()): void => {

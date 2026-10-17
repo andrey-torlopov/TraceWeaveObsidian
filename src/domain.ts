@@ -2,7 +2,7 @@ import { t } from './i18n';
 import type { Asset, Attribute, BlobRecord, Command, Evidence, ID, NodeChanges, Project, ProjectNode, SearchHit } from './types';
 import { validEmoji } from './emojiSequences';
 import { caseFold } from './casefold';
-import { DATA_ROOT, LEGACY_METADATA_ROOT, TRANSITIONAL_METADATA_ROOT, isAllowedNotePath, isAllowedResourcePath } from './storage/layout';
+import { DATA_ROOT, LEGACY_METADATA_ROOT, TRANSITIONAL_METADATA_ROOT, hasControlCharacters, isAllowedNotePath, isAllowedResourcePath } from './storage/layout';
 
 export class DomainError extends Error {
   constructor(public readonly code: string, message: string) { super(message); this.name = 'DomainError'; }
@@ -34,7 +34,7 @@ function keys(value: object, names: readonly string[], name: string): void {
 function text(value: unknown, name: string, max: number, min = 0): asserts value is string {
   check(typeof value === 'string', t(`${name}: требуется строка.`, `${name}: a string is required.`));
   const length = [...value].length;
-  check(length >= min && length <= max && !/[\u0000]/u.test(value), t(`${name}: недопустимая длина или нулевой символ.`, `${name}: invalid length or null character.`));
+  check(length >= min && length <= max && !value.includes('\0'), t(`${name}: недопустимая длина или нулевой символ.`, `${name}: invalid length or null character.`));
   check(!/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/u.test(value), t(`${name}: неполный Unicode-символ.`, `${name}: incomplete Unicode character.`));
 }
 function label(value: unknown, name: string, max: number): asserts value is string { text(value, name, max, 1); check(value === normalized(value), t(`${name}: требуется NFC без пробелов по краям.`, `${name}: NFC text without leading or trailing spaces is required.`)); }
@@ -71,12 +71,12 @@ function metadata(value: unknown, name: string, maxBytes?: number): void {
 }
 /** Paths are vault relative. Never accept platform paths, traversal or reserved host folders. */
 export function validateRelativePath(value: unknown, name = 'path', note = false): asserts value is string {
-  check(typeof value === 'string' && !/[\u0000-\u001F\u007F]/u.test(value), t(`${name}: небезопасный путь.`, `${name}: unsafe path.`), 'unsafe_path');
+  check(typeof value === 'string' && !hasControlCharacters(value), t(`${name}: небезопасный путь.`, `${name}: unsafe path.`), 'unsafe_path');
   text(value, name, 4096, 1);
-  check(value === value.normalize('NFC') && !/[\\\u0000-\u001F\u007F:#?]/u.test(value), t(`${name}: небезопасный путь.`, `${name}: unsafe path.`), 'unsafe_path');
+  check(value === value.normalize('NFC') && !/[\\:#?]/u.test(value), t(`${name}: небезопасный путь.`, `${name}: unsafe path.`), 'unsafe_path');
   const parts = value.split('/');
   check(parts.every(part => part !== '' && part !== '.' && part !== '..' && part.trim() === part && !/[. ]$/.test(part)), t(`${name}: небезопасный компонент пути.`, `${name}: unsafe path component.`), 'unsafe_path');
-  check(!parts.some(part => part.toLowerCase() === '.obsidian'), t(`${name}: системная папка Obsidian запрещена.`, `${name}: the Obsidian configuration folder is forbidden.`), 'unsafe_path');
+  check(!parts.some((part, index) => part.startsWith('.') && !(index === 0 && part === DATA_ROOT)), t(`${name}: скрытая папка запрещена.`, `${name}: a hidden folder is forbidden.`), 'unsafe_path');
   if (note) {
     check(isAllowedNotePath(value, true), t(`${name}: заметка должна находиться вне скрытых и служебных папок.`, `${name}: notes must stay outside hidden and metadata folders.`), 'unsafe_path');
   }
@@ -208,7 +208,7 @@ export function validateProject(project: Project): void {
     keys(asset, ['id', 'blobId', 'originalName', 'title', 'mimeType', 'mediaKind', 'byteSize', 'sha256', 'createdAt', 'deletedAt', 'deletionBatchId', 'sourceUrl', 'sourceAuthor', 'sourceCreatedAt', 'noteMarkdown', 'origin'], 'asset');
     id(asset.blobId, 'asset.blobId'); const blob = blobs.get(asset.blobId); check(blob, t('Отсутствует оригинал материала.', "The material's original is missing."), 'missing_reference'); validateBlob(asset);
     check(['sha256', 'byteSize', 'mimeType', 'mediaKind'].every(key => asset[key as keyof Asset] === blob[key as keyof BlobRecord]), t('Материал и оригинал расходятся.', "The material and its original do not match."));
-    text(asset.originalName, 'asset.originalName', 1024, 1); check(!/[\u0000-\u001F\u007F]/.test(asset.originalName), t('Недопустимое имя файла.', "Invalid filename.")); label(asset.title, 'asset.title', 200); timestamp(asset.createdAt, 'asset.createdAt'); deletion(asset, 'asset');
+    text(asset.originalName, 'asset.originalName', 1024, 1); check(!hasControlCharacters(asset.originalName), t('Недопустимое имя файла.', "Invalid filename.")); label(asset.title, 'asset.title', 200); timestamp(asset.createdAt, 'asset.createdAt'); deletion(asset, 'asset');
     if (asset.sourceUrl !== null) httpUrl(asset.sourceUrl, 'asset.sourceUrl'); nullableText(asset.sourceAuthor, 'asset.sourceAuthor', 500); if (asset.sourceCreatedAt !== null) timestamp(asset.sourceCreatedAt, 'asset.sourceCreatedAt'); bytes(asset.noteMarkdown, 'asset.noteMarkdown', 65536); metadata(asset.origin, 'asset.origin');
     if (asset.deletionBatchId !== null) check(batches.has(asset.deletionBatchId), t('Пакет удаления материала отсутствует.', "The material's deletion batch is missing."));
   }
@@ -363,7 +363,7 @@ export function applyCommands(project: Project, commands: Command[], now = new D
 export function searchProject(project: Project, query: string, bodies: ReadonlyMap<ID, string> | Record<ID, string> = {}, caseSensitive = false): SearchHit[] {
   const normalizedQuery = query.normalize('NFC'); if (normalizedQuery.length === 0) return [];
   const needle = caseSensitive ? normalizedQuery : caseFold(normalizedQuery); const hits: SearchHit[] = [];
-  const bodyFor = (nodeId: ID): string => bodies instanceof Map ? bodies.get(nodeId) ?? '' : (bodies as Record<ID, string>)[nodeId] ?? '';
+  const bodyFor = (nodeId: ID): string => bodies instanceof Map ? (bodies as ReadonlyMap<ID, string>).get(nodeId) ?? '' : (bodies as Record<ID, string>)[nodeId] ?? '';
   for (const node of project.nodes) {
     if (node.deletedAt !== null) continue;
     const fields: [string, string][] = [['title', node.title], ['body', bodyFor(node.id)], ['subtitle', node.subtitle ?? ''], ['tags', node.tags.join(' ')]];

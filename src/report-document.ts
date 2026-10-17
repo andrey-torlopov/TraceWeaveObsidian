@@ -9,7 +9,7 @@ export const MAX_REPORT_PREVIEW_BYTES = 16_777_216;
 /** A hidden viewer is scoped to one registered immutable snapshot, never arbitrary metadata. */
 export function reportDocumentInfo(relative: string): { directory: string; projectId: string; snapshotId: string } | null {
   const match = REPORT.exec(relative);
-  return match && match[0] === relative ? { directory: match[1]!, projectId: match[2]!, snapshotId: match[3]! } : null;
+  return match && match[0] === relative ? { directory: match[1], projectId: match[2], snapshotId: match[3] } : null;
 }
 
 export async function loadReportDocument(repository: ProjectRepository, relative: string): Promise<{ title: string; text: string; sourcePath: string }> {

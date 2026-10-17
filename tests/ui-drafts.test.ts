@@ -2,6 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { MetadataDraftStore, metadataDrafts } from '../src/ui/drafts';
 
+// Tests drive flush explicitly; no real timer can race an assertion or keep Node alive.
+const createStore = () => new MetadataDraftStore({ setTimeout: () => 1, clearTimeout: () => {} });
+
 test('metadata drafts are shared between leaves of the same host service', () => {
   const service = {};
   const first = metadataDrafts(service), reopenedLeaf = metadataDrafts(service);
@@ -24,7 +27,7 @@ test('vaults and project/entity draft scopes stay independent', () => {
 });
 
 test('unknown values and explicit false/empty values are retained in metadata drafts', () => {
-  const store = new MetadataDraftStore();
+  const store = createStore();
   store.set('confidence', null); store.set('boolean', false); store.set('text', '');
   assert.equal(store.has('confidence'), true);
   assert.equal(store.get('confidence'), null);
@@ -33,7 +36,7 @@ test('unknown values and explicit false/empty values are retained in metadata dr
 });
 
 test('successful save/discard clears only that form and not other open edits', () => {
-  const store = new MetadataDraftStore(); let events = 0;
+  const store = createStore(); let events = 0;
   const unsubscribe = store.subscribe(() => { events++; });
   store.set('p/node/a/title', 'A'); store.set('p/node/a/evidence', []); store.set('p/node/b/title', 'B');
   store.clearPrefix('p/node/a');
@@ -46,13 +49,13 @@ test('successful save/discard clears only that form and not other open edits', (
 
 test('durable drafts round trip null values and recover without overwriting canonical fields', async () => {
   const records: Record<string, unknown> = {};
-  const host = { loadDrafts: async () => ({ ...records }), saveDraft: async (key: string, value: unknown | null) => { if (value === null) delete records[key]; else records[key] = value; } };
-  const original = new MetadataDraftStore(); await original.hydrate(host, 'p');
+  const host = { loadDrafts: async () => ({ ...records }), saveDraft: async (key: string, value: unknown) => { if (value === null) delete records[key]; else records[key] = value; } };
+  const original = createStore(); await original.hydrate(host, 'p');
   original.set('p/node/a/title', 'Черновик'); original.set('p/node/a/confidence', null);
   assert.equal(Object.keys(records).length, 0);
   await original.flush();
   assert.equal(original.status('p').saved, true);
-  const restarted = new MetadataDraftStore(); await restarted.hydrate(host, 'p');
+  const restarted = createStore(); await restarted.hydrate(host, 'p');
   assert.equal(restarted.get('p/node/a/title'), 'Черновик');
   assert.equal(restarted.has('p/node/a/confidence'), true);
   assert.equal(restarted.get('p/node/a/confidence'), null);
@@ -64,8 +67,8 @@ test('durable drafts round trip null values and recover without overwriting cano
 test('slow hydration never overwrites newly typed fields or resurrects an explicitly discarded form', async () => {
   let resolveLoad!: (value: Record<string, unknown>) => void;
   const persisted: Record<string, unknown> = {};
-  const host = { loadDrafts: () => new Promise<Record<string, unknown>>(resolve => { resolveLoad = resolve; }), saveDraft: async (key: string, value: unknown | null) => { if (value === null) delete persisted[key]; else persisted[key] = value; } };
-  const store = new MetadataDraftStore(), loading = store.hydrate(host, 'p');
+  const host = { loadDrafts: () => new Promise<Record<string, unknown>>(resolve => { resolveLoad = resolve; }), saveDraft: async (key: string, value: unknown) => { if (value === null) delete persisted[key]; else persisted[key] = value; } };
+  const store = createStore(), loading = store.hydrate(host, 'p');
   store.set('p/node/a/title', 'Новый ввод'); store.clearPrefix('p/node/b');
   resolveLoad({ 'p/node/a/title': { format: 'traceweave.metadata-draft', value: 'Старый ввод' }, 'p/node/b/evidence': { format: 'traceweave.metadata-draft', value: ['Старый источник'] } });
   await loading; await store.flush();
@@ -78,7 +81,7 @@ test('failed persistence keeps draft values and exposes exact error until retry 
   let fail = true;
   const saved: Record<string, unknown> = {};
   const host = { loadDrafts: async () => ({}), saveDraft: async (key: string, value: unknown) => { if (fail) throw new Error('Лимит черновиков 5 МиБ'); saved[key] = value; } };
-  const store = new MetadataDraftStore(); await store.hydrate(host, 'p');
+  const store = createStore(); await store.hydrate(host, 'p');
   store.set('p/node/a/attributes', [{ key: 'Важное', value: 'Данные' }]);
   await assert.rejects(store.flush(), /5 МиБ/);
   assert.equal(store.status('p').error, 'Лимит черновиков 5 МиБ');
@@ -91,7 +94,7 @@ test('failed persistence keeps draft values and exposes exact error until retry 
 test('coalesced field updates persist latest values while failed project does not block another scope', async () => {
   const writes: [string, unknown][] = [];
   const host = { loadDrafts: async () => ({}), saveDraft: async (key: string, value: unknown) => { if (key.startsWith('failed/')) throw new Error('Диск недоступен'); writes.push([key, value]); } };
-  const store = new MetadataDraftStore(); await store.hydrate(host, 'p');
+  const store = createStore(); await store.hydrate(host, 'p');
   store.set('p/node/a/title', 'Первая'); store.set('p/node/a/title', 'Последняя');
   store.set('failed/node/b/title', 'Сохранить после подключения диска');
   await assert.rejects(store.flush(), /Диск недоступен/);
@@ -103,7 +106,7 @@ test('coalesced field updates persist latest values while failed project does no
 test('new edits made while a write is pending are saved after the earlier version', async () => {
   let release!: () => void; const writes: unknown[] = []; let first = true;
   const host = { loadDrafts: async () => ({}), saveDraft: async (_key: string, value: unknown) => { writes.push(value); if (first) { first = false; await new Promise<void>(resolve => { release = resolve; }); } } };
-  const store = new MetadataDraftStore(); await store.hydrate(host, 'p');
+  const store = createStore(); await store.hydrate(host, 'p');
   store.set('p/node/a/title', 'До записи'); const saving = store.flush();
   store.set('p/node/a/title', 'Во время записи'); release(); await saving; await store.flush();
   assert.deepEqual(writes, [{ format: 'traceweave.metadata-draft', value: 'До записи' }, { format: 'traceweave.metadata-draft', value: 'Во время записи' }]);
@@ -111,8 +114,43 @@ test('new edits made while a write is pending are saved after the earlier versio
 });
 
 test('unknown persisted draft formats are reported and the form stays gated', async () => {
-  const store = new MetadataDraftStore();
+  const store = createStore();
   await assert.rejects(store.hydrate({ loadDrafts: async () => ({ 'p/node/a/title': { value: 'Без версии' } }), saveDraft: async () => {} }, 'p'), /Неизвестный формат/);
   assert.equal(store.status('p').hydrated, false);
   assert.match(store.status('p').error!, /Неизвестный формат/);
+});
+
+test('every rejected draft write rejects flush, including falsey non-Error reasons', async () => {
+  for (const reason of [undefined, null, false, 0, '']) {
+    let fail = true;
+    const store = createStore();
+    await store.hydrate({ loadDrafts: async () => ({}), saveDraft: () => fail ? Promise.reject(reason) : Promise.resolve() }, 'p');
+    store.set('p/node/a/title', 'Keep the unsaved value');
+    await assert.rejects(store.flush(), error => error instanceof Error && error.message === String(reason));
+    assert.equal(store.get('p/node/a/title'), 'Keep the unsaved value');
+    assert.equal(store.status('p').pending, 1);
+    assert.equal(store.status('p').saved, false);
+    fail = false;
+    await store.flush();
+    assert.equal(store.status('p').pending, 0);
+    assert.equal(store.status('p').error, null);
+  }
+});
+
+test('draft debounce uses and clears its owning window timer, including timer ID zero', async () => {
+  const scheduled = new Map<number, () => void>(), cleared: number[] = [], writes: unknown[] = [];
+  let nextTimer = 0;
+  const store = new MetadataDraftStore({
+    setTimeout: callback => { const timer = nextTimer++; scheduled.set(timer, callback); return timer; },
+    clearTimeout: timer => { cleared.push(timer); scheduled.delete(timer); },
+  });
+  await store.hydrate({ loadDrafts: async () => ({}), saveDraft: async (_key, value) => { writes.push(value); } }, 'p');
+  store.set('p/node/a/title', 'First');
+  store.set('p/node/a/title', 'Latest');
+  assert.deepEqual(cleared, [0]);
+  assert.equal(scheduled.size, 1);
+  await store.flush();
+  assert.deepEqual(cleared, [0, 1]);
+  assert.equal(scheduled.size, 0);
+  assert.deepEqual(writes, [{ format: 'traceweave.metadata-draft', value: 'Latest' }]);
 });

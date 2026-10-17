@@ -4,10 +4,10 @@ import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { DomainError, validateProject } from '../domain';
 import type { Project } from '../types';
-import { ProjectRepository, digest, stableJSON, strictJSON } from './repository';
+import { ProjectRepository, digest, stableJSON, strictJSON, type History, type Journal } from './repository';
 import { digestFile, requireId, resolveSafe, safeRelative } from './files';
 import { validateRecord } from './records';
-import { LEGACY_METADATA_ROOT, isAllowedNotePath } from './layout';
+import { LEGACY_METADATA_ROOT, isAllowedNotePath, isConfigurationPath } from './layout';
 import { verifyReport } from '../portability';
 import { rewriteMovedNoteLinks } from './markdown-paths';
 
@@ -30,14 +30,14 @@ async function atomic(root: string, relative: string, value: string): Promise<vo
 async function proof(root: string, relative: string): Promise<Proof> { return digestFile(await resolveSafe(root, relative), {}, Number.MAX_SAFE_INTEGER); }
 async function verify(root: string, relative: string, expected: Proof): Promise<void> { const actual = await proof(root, relative); if (actual.sha256 !== expected.sha256 || actual.byteSize !== expected.byteSize) throw new DomainError('migration_conflict', t(`Файл изменён во время переноса: ${relative}. Исходные данные сохранены.`, `A file changed during migration: ${relative}. The original data was preserved.`)); }
 function planHash(marker: Pick<Marker, 'id' | 'moves' | 'prepared' | 'aliases' | 'externalNotes' | 'baselines' | 'retainedRoot'>): string { return digest(stableJSON({ id: marker.id, moves: marker.moves, prepared: marker.prepared, aliases: marker.aliases, externalNotes: marker.externalNotes, baselines: marker.baselines, retainedRoot: marker.retainedRoot })); }
-function validateMarker(value: Marker): void {
+function validateMarker(value: Marker, configDir?: string): void {
   if (!value || value.format !== 'traceweave.layout-migration' || value.version !== 1 || !['prepared','files','published','complete'].includes(value.phase) || !Array.isArray(value.moves) || !Array.isArray(value.prepared) || !Array.isArray(value.aliases) || !Array.isArray(value.externalNotes) || !Array.isArray(value.baselines)) throw new DomainError('migration', t('Повреждён протокол переноса TWData.', "The TWData migration record is corrupt."));
-  requireId(value.id); safeRelative(value.retainedRoot); if (value.retainedRoot !== `${DATA_ROOT}/recovery/legacy-0.1.0/${value.id}/${LEGACY_METADATA_ROOT}` || value.planHash !== planHash(value)) throw new DomainError('migration', t('Контрольная сумма плана переноса не совпала.', "The migration plan checksum does not match."));
+  requireId(value.id); safeRelative(value.retainedRoot, configDir); if (value.retainedRoot !== `${DATA_ROOT}/recovery/legacy-0.1.0/${value.id}/${LEGACY_METADATA_ROOT}` || value.planHash !== planHash(value)) throw new DomainError('migration', t('Контрольная сумма плана переноса не совпала.', "The migration plan checksum does not match."));
   const targets = new Set<string>(), external = new Set(value.externalNotes);
-  for (const relative of external) if (!isAllowedNotePath(relative) || relative.startsWith(DATA_ROOT + '/')) throw new DomainError('migration', t('Небезопасный внешний путь заметки.', "Unsafe external note path."));
-  for (const move of [...value.moves, ...value.prepared]) { safeRelative(move.from); safeRelative(move.to); const externalEffect = value.prepared.includes(move) && external.has(move.to) && move.from.startsWith(`${DATA_ROOT}/.migration-${value.id}/prepared/`); if ((!move.to.startsWith(DATA_ROOT + '/') && !externalEffect) || move.from.split('/').some(part => part.toLowerCase() === '.obsidian') || targets.has(move.to.toLowerCase()) || !/^[a-f0-9]{64}$/.test(move.sha256) || !Number.isSafeInteger(move.byteSize) || move.byteSize < 0) throw new DomainError('migration', t('Небезопасная запись переноса.', "Unsafe migration record.")); targets.add(move.to.toLowerCase()); }
-  for (const baseline of value.baselines) { safeRelative(baseline.path); if (!baseline.path.startsWith(LEGACY_METADATA_ROOT + '/') || !/^[a-f0-9]{64}$/.test(baseline.sha256)) throw new DomainError('migration', t('Неверная исходная контрольная сумма.', "Invalid original checksum.")); }
-  for (const alias of value.aliases) { safeRelative(alias.from); safeRelative(alias.to); if ((alias.to !== DATA_ROOT && !alias.to.startsWith(DATA_ROOT + '/')) || alias.from.split('/').some(part => part.toLowerCase() === '.obsidian')) throw new DomainError('migration', t('Небезопасная таблица старых путей.', "Unsafe legacy path mapping.")); }
+  for (const relative of external) if (!isAllowedNotePath(relative, false, configDir) || relative.startsWith(DATA_ROOT + '/')) throw new DomainError('migration', t('Небезопасный внешний путь заметки.', "Unsafe external note path."));
+  for (const move of [...value.moves, ...value.prepared]) { safeRelative(move.from, configDir); safeRelative(move.to, configDir); const externalEffect = value.prepared.includes(move) && external.has(move.to) && move.from.startsWith(`${DATA_ROOT}/.migration-${value.id}/prepared/`); if ((!move.to.startsWith(DATA_ROOT + '/') && !externalEffect) || targets.has(move.to.toLowerCase()) || !/^[a-f0-9]{64}$/.test(move.sha256) || !Number.isSafeInteger(move.byteSize) || move.byteSize < 0) throw new DomainError('migration', t('Небезопасная запись переноса.', "Unsafe migration record.")); targets.add(move.to.toLowerCase()); }
+  for (const baseline of value.baselines) { safeRelative(baseline.path, configDir); if (!baseline.path.startsWith(LEGACY_METADATA_ROOT + '/') || !/^[a-f0-9]{64}$/.test(baseline.sha256)) throw new DomainError('migration', t('Неверная исходная контрольная сумма.', "Invalid original checksum.")); }
+  for (const alias of value.aliases) { safeRelative(alias.from, configDir); safeRelative(alias.to, configDir); if ((alias.to !== DATA_ROOT && !alias.to.startsWith(DATA_ROOT + '/'))) throw new DomainError('migration', t('Небезопасная таблица старых путей.', "Unsafe legacy path mapping.")); }
 }
 async function walk(root: string, relative: string): Promise<string[]> {
   if (!await exists(root, relative)) return [];
@@ -59,9 +59,9 @@ async function removeEmptyDirectories(root: string, relative: string): Promise<v
 }
 
 /** Upgrade the layout, retaining IDs/report bytes and originals of notes whose link destinations change. */
-export async function migrateLegacyVault(vaultRoot: string, options: { fault?: (point: MigrationFaultPoint) => void } = {}): Promise<void> {
-  let marker: Marker | null = await exists(vaultRoot, MARKER) ? strictJSON<Marker>(await readUTF8(vaultRoot, MARKER)) : null;
-  if (marker) validateMarker(marker);
+export async function migrateLegacyVault(vaultRoot: string, options: { fault?: (point: MigrationFaultPoint) => void; configDir?: string } = {}): Promise<void> {
+  safeRelative(DATA_ROOT, options.configDir); if (options.configDir && isConfigurationPath(options.configDir, DATA_ROOT)) throw new DomainError('migration', t('Папки метаданных и настроек не должны пересекаться.', 'The metadata and configuration folders must not overlap.')); safeRelative(LEGACY_METADATA_ROOT, options.configDir); let marker: Marker | null = await exists(vaultRoot, MARKER) ? strictJSON<Marker>(await readUTF8(vaultRoot, MARKER)) : null;
+  if (marker) validateMarker(marker, options.configDir);
   if (marker?.phase === 'complete') { if (await exists(vaultRoot, LEGACY_METADATA_ROOT)) throw new DomainError('migration_conflict', t('После переноса вновь появилась старая папка _TraceWeave. Автоматическое объединение запрещено.', "The legacy _TraceWeave folder reappeared after migration. Automatic merging is forbidden.")); return; }
   if (!await exists(vaultRoot, LEGACY_METADATA_ROOT)) {
     if (!marker) return;
@@ -69,7 +69,7 @@ export async function migrateLegacyVault(vaultRoot: string, options: { fault?: (
     for (const move of [...marker.moves, ...marker.prepared]) await verify(vaultRoot, move.to, move);
     marker.phase = 'complete'; await atomic(vaultRoot, MARKER, stableJSON(marker)); return;
   }
-  const legacy = new ProjectRepository(vaultRoot, { metadataRoot: LEGACY_METADATA_ROOT });
+  const legacy = new ProjectRepository(vaultRoot, { metadataRoot: LEGACY_METADATA_ROOT, configDir: options.configDir });
   try {
     await legacy.initialize(); legacy.assertWritable();
     if (!marker) {
@@ -77,7 +77,7 @@ export async function migrateLegacyVault(vaultRoot: string, options: { fault?: (
       const id = randomUUID(), stage = `${DATA_ROOT}/.migration-${id}`;
       let configured = { notesRoot: oldNotes, resourcesRoot: oldResources };
       if (await exists(vaultRoot, `${LEGACY_METADATA_ROOT}/settings.json`)) { configured = strictJSON(await readUTF8(vaultRoot, `${LEGACY_METADATA_ROOT}/settings.json`)); safeRelative(configured.notesRoot); safeRelative(configured.resourcesRoot); }
-      const customManagedNotes = new Set<string>(), customManagedBlobs = new Set<string>(), allStates: Project[] = [], oldJournals: any[] = [], projectDirectories: string[] = [];
+      const customManagedNotes = new Set<string>(), customManagedBlobs = new Set<string>(), allStates: Project[] = [], oldJournals: Journal[] = [], projectDirectories: string[] = [];
       const collectOwnership = (p: Project): void => {
         allStates.push(p);
         for (const node of p.nodes) { const parent = path.posix.basename(path.posix.dirname(node.notePath)), name = path.posix.basename(node.notePath); if (node.notePath.startsWith(configured.notesRoot + '/') && parent.endsWith(`--${p.id.slice(0,8)}`) && name.endsWith(`--${node.id.slice(0,8)}.md`)) customManagedNotes.add(node.notePath); }
@@ -86,7 +86,7 @@ export async function migrateLegacyVault(vaultRoot: string, options: { fault?: (
       for (const entry of await fs.readdir(await resolveSafe(vaultRoot, `${LEGACY_METADATA_ROOT}/projects`), { withFileTypes: true })) {
         if (entry.name === '.DS_Store' && entry.isFile() && !entry.isSymbolicLink()) continue;
         if (!entry.isDirectory() || entry.isSymbolicLink()) throw new DomainError('migration', t('Неожиданный объект в каталоге старых проектов.', "Unexpected entry in the legacy projects folder.")); requireId(entry.name); const p = await legacy.read(entry.name); projectDirectories.push(p.id); collectOwnership(p);
-        for (const file of await walk(vaultRoot, legacy.projectRoot(p.id))) if (/\/(history|journal)\/[^/]+\.json$/u.test(file)) { const record = strictJSON<any>(await readUTF8(vaultRoot, file)), kind = file.includes('/journal/') ? 'journal' : 'history'; validateRecord(kind, record); if (kind === 'history') { collectOwnership(record.before); collectOwnership(record.after); } else { oldJournals.push(record); collectOwnership(record.state); collectOwnership(record.history.before); collectOwnership(record.history.after); } }
+        for (const file of await walk(vaultRoot, legacy.projectRoot(p.id))) if (/\/(history|journal)\/[^/]+\.json$/u.test(file)) { const record = strictJSON<History | Journal>(await readUTF8(vaultRoot, file)), kind = file.includes('/journal/') ? 'journal' : 'history'; validateRecord(kind, record); if (!('history' in record)) { collectOwnership(record.before); collectOwnership(record.after); } else { oldJournals.push(record); collectOwnership(record.state); collectOwnership(record.history.before); collectOwnership(record.history.after); } }
       }
       const mapped = (relative: string): string => {
         for (const [from, to] of [[LEGACY_METADATA_ROOT, DATA_ROOT], [oldNotes, NOTES_ROOT], [oldResources, RESOURCES_ROOT]]) if (relative.startsWith(from + '/')) return to + relative.slice(from.length);
@@ -120,7 +120,7 @@ export async function migrateLegacyVault(vaultRoot: string, options: { fault?: (
       const externalNotes: string[] = []; let scannedNotes = 0, scannedBytes = 0;
       const scanOrdinary = async (relative = ''): Promise<void> => {
         for (const entry of await fs.readdir(relative ? await resolveSafe(vaultRoot, relative) : vaultRoot, { withFileTypes: true })) {
-          if (entry.name.startsWith('.') || entry.isSymbolicLink() || (!relative && [DATA_ROOT, LEGACY_METADATA_ROOT, oldNotes, oldResources].includes(entry.name))) continue;
+          if (isConfigurationPath(relative ? `${relative}/${entry.name}` : entry.name, options.configDir) || entry.name.startsWith('.') || entry.isSymbolicLink() || (!relative && [DATA_ROOT, LEGACY_METADATA_ROOT, oldNotes, oldResources].includes(entry.name))) continue;
           const candidate = relative ? `${relative}/${entry.name}` : entry.name;
           if (entry.isDirectory()) { await scanOrdinary(candidate); continue; }
           if (!entry.isFile() || !isAllowedNotePath(candidate) || moves.has(candidate)) continue;
@@ -139,8 +139,8 @@ export async function migrateLegacyVault(vaultRoot: string, options: { fault?: (
         for (const file of await walk(vaultRoot, legacy.projectRoot(p.id))) {
           if (file === legacy.statePath(p.id)) continue;
           if (/\/(history|journal)\/[^/]+\.json$/u.test(file)) {
-            const record = strictJSON<any>(await readUTF8(vaultRoot, file)); const kind = file.includes('/journal/') ? 'journal' : 'history'; validateRecord(kind, record);
-            if (kind === 'history') { await track(record.before); await track(record.after); record.before = transform(record.before); record.after = transform(record.after); }
+            const record = strictJSON<History | Journal>(await readUTF8(vaultRoot, file)); const kind = file.includes('/journal/') ? 'journal' : 'history'; validateRecord(kind, record);
+            if (!('history' in record)) { await track(record.before); await track(record.after); record.before = transform(record.before); record.after = transform(record.after); }
             else { if (!record.completed) throw new DomainError('migration', t('Старый журнал ещё не восстановлен.', "The legacy journal has not been recovered yet.")); record.state = transform(record.state); record.history.before = transform(record.history.before); record.history.after = transform(record.history.after); record.effects = record.effects.map((e: { path: string; before: string | null; after: string }) => ({ ...e, path: mapped(e.path), before: e.before === null ? null : rewrite(e.path, e.before), after: rewrite(e.path, e.after) })); record.beforeHash = digest(stableJSON(record.history.before)); record.afterHash = digest(stableJSON(record.state)); }
             validateRecord(kind, record); await prepare(file, record);
           } else if (file.endsWith('/recovery/previous-state.json')) { const state = strictJSON<Project>(await readUTF8(vaultRoot, file)); validateProject(state); await prepare(file, transform(state)); }
@@ -148,7 +148,7 @@ export async function migrateLegacyVault(vaultRoot: string, options: { fault?: (
         }
       }
       const settingsPath = `${LEGACY_METADATA_ROOT}/settings.json`; await prepare(settingsPath, { notesRoot: NOTES_ROOT, resourcesRoot: RESOURCES_ROOT });
-      marker = { format: 'traceweave.layout-migration', version: 1, id, phase: 'prepared', moves: [...moves.values()], prepared, aliases, externalNotes, baselines, retainedRoot: `${DATA_ROOT}/recovery/legacy-0.1.0/${id}/${LEGACY_METADATA_ROOT}`, planHash: '' }; marker.planHash = planHash(marker); await atomic(vaultRoot, MARKER, stableJSON(marker)); options.fault?.('after-prepared');
+      marker = { format: 'traceweave.layout-migration', version: 1, id, phase: 'prepared', moves: [...moves.values()], prepared, aliases, externalNotes, baselines, retainedRoot: `${DATA_ROOT}/recovery/legacy-0.1.0/${id}/${LEGACY_METADATA_ROOT}`, planHash: '' }; marker.planHash = planHash(marker); validateMarker(marker, options.configDir); await atomic(vaultRoot, MARKER, stableJSON(marker)); options.fault?.('after-prepared');
     }
     for (const baseline of marker.baselines) await verify(vaultRoot, baseline.path, baseline);
     if (marker.phase === 'prepared') { for (const move of marker.moves) await moveChecked(vaultRoot, move); marker.phase = 'files'; await atomic(vaultRoot, MARKER, stableJSON(marker)); options.fault?.('after-files'); }
@@ -163,13 +163,13 @@ export async function migrateLegacyVault(vaultRoot: string, options: { fault?: (
   } finally { await legacy.dispose(); }
 }
 
-export async function getMigratedPath(vaultRoot: string, oldPath: string): Promise<string | null> { return aliasPath(vaultRoot, oldPath, false); }
-export async function getOriginalPath(vaultRoot: string, newPath: string): Promise<string | null> { return aliasPath(vaultRoot, newPath, true); }
-export async function legacyAliases(vaultRoot: string, markerPath = MARKER): Promise<{ from: string; to: string }[]> {
-  if (!await exists(vaultRoot, markerPath)) return []; const marker = strictJSON<Marker>(await readUTF8(vaultRoot, markerPath)); validateMarker(marker); if (marker.phase !== 'complete') throw new DomainError('migration', t('Предыдущий перенос ещё не завершён.', "The previous migration is not complete.")); return marker.aliases;
+export async function getMigratedPath(vaultRoot: string, oldPath: string, configDir?: string): Promise<string | null> { return aliasPath(vaultRoot, oldPath, false, configDir); }
+export async function getOriginalPath(vaultRoot: string, newPath: string, configDir?: string): Promise<string | null> { return aliasPath(vaultRoot, newPath, true, configDir); }
+export async function legacyAliases(vaultRoot: string, markerPath = MARKER, configDir?: string): Promise<{ from: string; to: string }[]> {
+  if (!await exists(vaultRoot, markerPath)) return []; const marker = strictJSON<Marker>(await readUTF8(vaultRoot, markerPath)); validateMarker(marker, configDir); if (marker.phase !== 'complete') throw new DomainError('migration', t('Предыдущий перенос ещё не завершён.', "The previous migration is not complete.")); return marker.aliases;
 }
-async function aliasPath(vaultRoot: string, value: string, reverse: boolean): Promise<string | null> {
-  safeRelative(value); if (!await exists(vaultRoot, MARKER)) return null; const marker = strictJSON<Marker>(await readUTF8(vaultRoot, MARKER)); validateMarker(marker); if (marker.phase !== 'complete') return null;
+async function aliasPath(vaultRoot: string, value: string, reverse: boolean, configDir?: string): Promise<string | null> {
+  safeRelative(value, configDir); if (!await exists(vaultRoot, MARKER)) return null; const marker = strictJSON<Marker>(await readUTF8(vaultRoot, MARKER)); validateMarker(marker, configDir); if (marker.phase !== 'complete') return null;
   if (reverse) return marker.aliases.find(alias => alias.to === value)?.from ?? null;
   const aliases = [...marker.aliases].sort((a,b) => (reverse ? b.to.length - a.to.length : b.from.length - a.from.length));
   const match = aliases.find(alias => { const prefix = reverse ? alias.to : alias.from; return value === prefix || value.startsWith(prefix + '/'); }); if (!match) return null;

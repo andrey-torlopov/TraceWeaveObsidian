@@ -56,6 +56,6 @@ export interface WorkbenchService {
  createReport(title: string, nodeIds?: ID[]): Promise<SnapshotRecord>;
  openReport(id: ID): Promise<void>; exportProject(): Promise<string>; exportTraceWeave(): Promise<string>; importArchive(file: File): Promise<void>;
  undo(): Promise<void>; redo(): Promise<void>; recover(): Promise<void>;
- loadDrafts(projectId?: ID): Promise<Record<string, unknown>>; saveDraft(key: string, value: unknown | null): Promise<void>;
+ loadDrafts(projectId?: ID): Promise<Record<string, unknown>>; saveDraft(key: string, value: unknown): Promise<void>;
  loadView(): Promise<Partial<ViewState>>; saveView(state: ViewState): Promise<void>;
 }

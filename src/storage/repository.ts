@@ -8,7 +8,7 @@ import { applyCommands, validateProject, DomainError } from '../domain';
 import type { Command, Project, ProjectSummary, ViewState } from '../types';
 import { resolveSafe, requireId, safeRelative } from './files';
 import { validateRecord } from './records';
-import { DATA_ROOT, LEGACY_METADATA_ROOT, TRANSITIONAL_METADATA_ROOT, isAllowedNotePath } from './layout';
+import { DATA_ROOT, LEGACY_METADATA_ROOT, TRANSITIONAL_METADATA_ROOT, isAllowedNotePath, isConfigurationPath } from './layout';
 
 export const METADATA_ROOT = DATA_ROOT;
 const MAX_STATE_BYTES = 64 * 1024 * 1024;
@@ -21,7 +21,7 @@ export function strictJSON<T>(source: string): T {
     onObjectProperty(name) { const current = stack.at(-1)!; if (current.has(name)) throw new DomainError('invalid_json', t('Повторяющийся ключ JSON.', "Duplicate JSON object key.")); current.add(name); },
     onObjectEnd() { stack.pop(); },
   }, { disallowComments: true, allowTrailingComma: false });
-  const value = parse(source, errors, { disallowComments: true, allowTrailingComma: false });
+  const value: unknown = parse(source, errors, { disallowComments: true, allowTrailingComma: false });
   if (errors.length) throw new DomainError('invalid_json', t('Некорректный JSON. Файл не изменён.', "Invalid JSON. The file was not changed."));
   return value as T;
 }
@@ -32,13 +32,14 @@ export function stableJSON(value: unknown): string {
 }
 export interface TextEffect { path: string; before: string | null; after: string }
 export type HistoryKind = 'command' | 'undo' | 'redo' | 'reconcile' | 'barrier';
-interface History { formatVersion: 1; operationId: string; kind: HistoryKind; target?: string; before: Project; after: Project }
-interface Journal { formatVersion: 1; projectId: string; operationId: string; beforeHash: string; afterHash: string; state: Project; effects: TextEffect[]; history: History; completed: boolean }
+export interface History { formatVersion: 1; operationId: string; kind: HistoryKind; target?: string; before: Project; after: Project }
+export interface Journal { formatVersion: 1; projectId: string; operationId: string; beforeHash: string; afterHash: string; state: Project; effects: TextEffect[]; history: History; completed: boolean }
 export interface ExecuteOptions { operationId?: string; baseRevision?: number; expectedStateHash?: string; effects?: TextEffect[]; kind?: HistoryKind; target?: string; replace?: Project }
 export type FaultPoint = 'after-journal' | 'after-files' | 'after-history' | 'after-state';
 
 export class ProjectRepository {
   readonly metadataRoot: string;
+  readonly configDir?: string;
   readonly issues: string[] = [];
   readonly instanceId = randomUUID();
   readonly fault?: (point: FaultPoint) => void;
@@ -48,12 +49,17 @@ export class ProjectRepository {
   private readonly pendingProjects = new Set<string>();
   get needsRecovery() { return this.pendingProjects.size > 0; }
   private tail: Promise<unknown> = Promise.resolve();
-  constructor(readonly vaultRoot: string, options: { fault?: (point: FaultPoint) => void; createNote?: (relative: string, text: string) => Promise<void>; metadataRoot?: string } = {}) { this.fault = options.fault; this.noteCreator = options.createNote; this.metadataRoot = options.metadataRoot ?? METADATA_ROOT; if (![DATA_ROOT, TRANSITIONAL_METADATA_ROOT, LEGACY_METADATA_ROOT].includes(this.metadataRoot)) throw new DomainError('layout', t('Неподдерживаемая папка метаданных.', "Unsupported metadata folder.")); }
+  constructor(readonly vaultRoot: string, options: { fault?: (point: FaultPoint) => void; createNote?: (relative: string, text: string) => Promise<void>; metadataRoot?: string; configDir?: string } = {}) { this.fault = options.fault; this.noteCreator = options.createNote; this.configDir = options.configDir; if (this.configDir !== undefined) safeRelative(this.configDir); this.metadataRoot = options.metadataRoot ?? METADATA_ROOT; safeRelative(this.metadataRoot, this.configDir); if (this.configDir && isConfigurationPath(this.configDir, this.metadataRoot)) throw new DomainError('layout', t('Папки метаданных и настроек не должны пересекаться.', 'The metadata and configuration folders must not overlap.')); if (![DATA_ROOT, TRANSITIONAL_METADATA_ROOT, LEGACY_METADATA_ROOT].includes(this.metadataRoot)) throw new DomainError('layout', t('Неподдерживаемая папка метаданных.', "Unsupported metadata folder.")); }
+  private resolve(relative: string, makeParents = false): Promise<string> { return resolveSafe(this.vaultRoot, relative, makeParents, this.configDir); }
+  private validate(project: Project): void {
+    validateProject(project);
+    for (const entry of [...project.nodes.map(node => node.notePath), ...project.blobs.map(blob => blob.path)]) safeRelative(entry, this.configDir);
+  }
   projectRoot(id: string) { requireId(id); return `${this.metadataRoot}/projects/${id}`; }
   statePath(id: string) { return `${this.projectRoot(id)}/state.json`; }
   async initialize() {
-    await fs.mkdir(await resolveSafe(this.vaultRoot, `${this.metadataRoot}/projects`, true), { recursive: true });
-    const lockPath = await resolveSafe(this.vaultRoot, `${this.metadataRoot}/writer.lock`);
+    await fs.mkdir(await this.resolve(`${this.metadataRoot}/projects`, true), { recursive: true });
+    const lockPath = await this.resolve(`${this.metadataRoot}/writer.lock`);
     try { await fs.writeFile(lockPath, JSON.stringify({ pid: process.pid, instanceId: this.instanceId }), { flag: 'wx', mode: 0o600 }); this.lockOwned = true; }
     catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
@@ -63,7 +69,7 @@ export class ProjectRepository {
       try { process.kill(value.pid, 0); } catch (failure) { if ((failure as NodeJS.ErrnoException).code === 'ESRCH') alive = false; else if ((failure as NodeJS.ErrnoException).code !== 'EPERM') throw failure; }
       if (alive) { this.readOnly = true; this.issues.push(t('Другое окно или процесс владеет записью TraceWeave. Доступно чтение.', "Another window or process owns TraceWeave write access. Read-only access is available.")); }
       else {
-        const retained = await resolveSafe(this.vaultRoot, `${this.metadataRoot}/recovery/locks/${randomUUID()}.json`, true);
+        const retained = await this.resolve(`${this.metadataRoot}/recovery/locks/${randomUUID()}.json`, true);
         await fs.rename(lockPath, retained);
         await fs.writeFile(lockPath, JSON.stringify({ pid: process.pid, instanceId: this.instanceId }), { flag: 'wx', mode: 0o600 }); this.lockOwned = true;
       }
@@ -73,7 +79,7 @@ export class ProjectRepository {
   async dispose() {
     await this.tail;
     if (this.lockOwned) {
-      const file = await resolveSafe(this.vaultRoot, `${this.metadataRoot}/writer.lock`);
+      const file = await this.resolve(`${this.metadataRoot}/writer.lock`);
       let source: string; try { source = await fs.readFile(file, 'utf8'); } catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') { this.lockOwned = false; return; } throw error; }
       const lock = strictJSON<{ instanceId: string }>(source);
       if (lock.instanceId === this.instanceId) await fs.unlink(file);
@@ -84,14 +90,14 @@ export class ProjectRepository {
   assertWritable(projectId?: string) { this.assertWriter(); if (projectId && this.pendingProjects.has(projectId)) throw new DomainError('recovery_required', t('Есть незавершённая операция. Сначала выполните восстановление.', "There is an incomplete operation. Run recovery first.")); }
   private assertWriter() { if (this.readOnly || !this.lockOwned) throw new DomainError('read_only', t('Запись этого хранилища недоступна. Закройте другой экземпляр и откройте плагин заново.', "Write access to this vault is unavailable. Close the other instance and reopen the plugin.")); }
   async readText(relative: string, maxBytes = MAX_STATE_BYTES): Promise<string> {
-    const filename = await resolveSafe(this.vaultRoot, relative);
+    const filename = await this.resolve(relative);
     const file = await fs.open(filename, constants.O_RDONLY | constants.O_NOFOLLOW);
     try { const stat = await file.stat(); if (!stat.isFile() || stat.size > maxBytes) throw new DomainError('file_limit', t('Файл превышает допустимый размер.', "The file exceeds the size limit.")); return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(await file.readFile()); }
     finally { await file.close(); }
   }
-  async read(id: string): Promise<Project> { const raw = await this.readText(this.statePath(id)); const state = strictJSON<Project>(raw); validateProject(state); if (state.id !== id) throw new DomainError('identity', t('ID проекта и его папка различаются.', "The project ID does not match its folder.")); return state; }
+  async read(id: string): Promise<Project> { const raw = await this.readText(this.statePath(id)); const state = strictJSON<Project>(raw); this.validate(state); if (state.id !== id) throw new DomainError('identity', t('ID проекта и его папка различаются.', "The project ID does not match its folder.")); return state; }
   async list(): Promise<ProjectSummary[]> {
-    const root = await resolveSafe(this.vaultRoot, `${this.metadataRoot}/projects`);
+    const root = await this.resolve(`${this.metadataRoot}/projects`);
     const items = await fs.readdir(root, { withFileTypes: true }); const result: ProjectSummary[] = [];
     for (const item of items) {
       if (!item.isDirectory() || item.isSymbolicLink()) continue;
@@ -102,7 +108,7 @@ export class ProjectRepository {
   }
   async atomicText(relative: string, text: string) {
     this.assertWriter();
-    const filename = await resolveSafe(this.vaultRoot, relative, true), temporary = `${filename}.${randomUUID()}.tmp`;
+    const filename = await this.resolve(relative, true), temporary = `${filename}.${randomUUID()}.tmp`;
     const file = await fs.open(temporary, 'wx', 0o600);
     try { await file.writeFile(text, 'utf8'); await file.sync(); }
     catch (error) { await file.close(); await fs.rm(temporary, { force: true }); throw error; }
@@ -115,15 +121,15 @@ export class ProjectRepository {
   }
   async add(project: Project): Promise<Project> {
     return this.exclusive(async () => {
-      this.assertWriter(); validateProject(project);
-      try { await fs.lstat(await resolveSafe(this.vaultRoot, this.statePath(project.id))); throw new DomainError('already_exists', t('Проект уже существует.', "The project already exists.")); }
+      this.assertWriter(); this.validate(project);
+      try { await fs.lstat(await this.resolve(this.statePath(project.id))); throw new DomainError('already_exists', t('Проект уже существует.', "The project already exists.")); }
       catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
       await this.atomicText(this.statePath(project.id), stableJSON(project)); return project;
     });
   }
   async execute(id: string, commands: Command[], options: ExecuteOptions = {}): Promise<Project> {
     return this.exclusive(async () => {
-      this.assertWriter(); if (this.pendingProjects.has(id)) throw new DomainError('recovery_required', t('Есть незавершённая операция. Сначала проверьте восстановление.', "There is an incomplete operation. Check recovery first.")); const source = await this.readText(this.statePath(id)); const before = strictJSON<Project>(source); validateProject(before); if (before.id !== id) throw new DomainError('identity', t('ID проекта и его папка различаются.', "The project ID does not match its folder."));
+      this.assertWriter(); if (this.pendingProjects.has(id)) throw new DomainError('recovery_required', t('Есть незавершённая операция. Сначала проверьте восстановление.', "There is an incomplete operation. Check recovery first.")); const source = await this.readText(this.statePath(id)); const before = strictJSON<Project>(source); this.validate(before); if (before.id !== id) throw new DomainError('identity', t('ID проекта и его папка различаются.', "The project ID does not match its folder."));
       const operationId = options.operationId ?? randomUUID(); requireId(operationId);
       const requestHash = digest(stableJSON({ commands, replace: options.replace ?? null, effects: options.effects ?? [], kind: options.kind ?? 'command', target: options.target ?? null }));
       const previous = before.receipts[operationId];
@@ -134,12 +140,12 @@ export class ProjectRepository {
       const next = options.replace ? { ...structuredClone(options.replace), id: before.id, receipts: structuredClone(before.receipts), revision: before.revision + 1, updatedAt: timestamp } : applyCommands(before, commands, timestamp);
       if (next.revision !== before.revision + 1) throw new DomainError('revision', t('Команда не изменила ревизию ровно один раз.', "The command did not increment the revision exactly once."));
       next.receipts[operationId] = { hash: requestHash, revision: next.revision, timestamp };
-      validateProject(next);
+      this.validate(next);
       const effects = options.effects ?? [];
       this.validateEffects(next, effects);
       for (const effect of effects) {
         safeRelative(effect.path);
-        if (!isAllowedNotePath(effect.path, this.metadataRoot !== DATA_ROOT)) throw new DomainError('unsafe_note', t('Путь заметки выходит в служебную папку.', "The note path enters a metadata folder."));
+        if (!isAllowedNotePath(effect.path, this.metadataRoot !== DATA_ROOT, this.configDir)) throw new DomainError('unsafe_note', t('Путь заметки выходит в служебную папку.', "The note path enters a metadata folder."));
         if (Buffer.byteLength(effect.after) > 5_242_880) throw new DomainError('file_limit', t('Заметка превышает 5 MiB.', "The note exceeds 5 MiB."));
         let actual: string | null = null;
         try { actual = await this.readText(effect.path, 5_242_880); } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
@@ -166,7 +172,7 @@ export class ProjectRepository {
     for (const effect of effects) {
       if (!effect || typeof effect.path !== 'string' || typeof effect.after !== 'string' || (effect.before !== null && typeof effect.before !== 'string')) throw new DomainError('journal', t('Некорректный файловый эффект.', "Invalid file effect."));
       safeRelative(effect.path); const key = effect.path.normalize('NFC').toLowerCase();
-      if (names.has(key) || !isAllowedNotePath(effect.path, this.metadataRoot !== DATA_ROOT)) throw new DomainError('journal', t('Небезопасный или повторяющийся путь заметки.', "Unsafe or duplicate note path."));
+      if (names.has(key) || !isAllowedNotePath(effect.path, this.metadataRoot !== DATA_ROOT, this.configDir)) throw new DomainError('journal', t('Небезопасный или повторяющийся путь заметки.', "Unsafe or duplicate note path."));
       names.add(key); total += Buffer.byteLength(effect.after) + (effect.before === null ? 0 : Buffer.byteLength(effect.before));
       if (Buffer.byteLength(effect.after) > 5_242_880 || (effect.before !== null && Buffer.byteLength(effect.before) > 5_242_880) || total > 33_554_432 || !project.nodes.some(n => n.notePath === effect.path && n.noteHash === digest(effect.after))) throw new DomainError('journal', t('Файловый эффект не соответствует документу и его контрольной сумме.', "The file effect does not match the document and its checksum."));
     }
@@ -178,22 +184,22 @@ export class ProjectRepository {
       if (actual === effect.after) continue;
       if (actual !== effect.before) throw new DomainError('note_conflict', t('Внешняя правка не совпадает с журналом; автоматическая перезапись остановлена.', "An external edit does not match the journal; automatic overwriting was stopped."));
       if (effect.before === null && this.noteCreator) {
-        await resolveSafe(this.vaultRoot, effect.path);
+        await this.resolve(effect.path);
         await this.noteCreator(effect.path, effect.after);
       } else if (effect.before === null) {
-        const filename = await resolveSafe(this.vaultRoot, effect.path, true); const file = await fs.open(filename, 'wx', 0o600);
+        const filename = await this.resolve(effect.path, true); const file = await fs.open(filename, 'wx', 0o600);
         try { await file.writeFile(effect.after, 'utf8'); await file.sync(); } finally { await file.close(); }
       } else await this.atomicText(effect.path, effect.after);
     }
   }
   async recover(): Promise<void> {
     this.assertWriter();
-    const projects = await fs.readdir(await resolveSafe(this.vaultRoot, `${this.metadataRoot}/projects`), { withFileTypes: true });
+    const projects = await fs.readdir(await this.resolve(`${this.metadataRoot}/projects`), { withFileTypes: true });
     for (const project of projects) {
       if (!project.isDirectory() || project.isSymbolicLink()) continue;
       requireId(project.name); const folder = `${this.projectRoot(project.name)}/journal`;
       let files: string[];
-      try { files = await fs.readdir(await resolveSafe(this.vaultRoot, folder)); } catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue; throw error; }
+      try { files = await fs.readdir(await this.resolve(folder)); } catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue; throw error; }
       const records: { path: string; journal: Journal }[] = [];
       this.pendingProjects.add(project.name);
       for (const file of files.filter(f => f.endsWith('.json'))) {
@@ -204,16 +210,16 @@ export class ProjectRepository {
       }
       records.sort((a, b) => a.journal.state.revision - b.journal.state.revision);
       for (const { path: relative, journal } of records) {
-        validateProject(journal.state); validateProject(journal.history.before); validateProject(journal.history.after); requireId(journal.operationId);
+        this.validate(journal.state); this.validate(journal.history.before); this.validate(journal.history.after); requireId(journal.operationId);
         if (digest(stableJSON(journal.state)) !== journal.afterHash || stableJSON(journal.history.after) !== stableJSON(journal.state) || journal.history.operationId !== journal.operationId || journal.history.before.id !== project.name || journal.state.id !== project.name || journal.state.revision !== journal.history.before.revision + 1 || journal.state.receipts[journal.operationId]?.revision !== journal.state.revision) throw new DomainError('journal', t('Содержимое журнала не соответствует контрольным суммам.', "Journal contents do not match their checksums."));
         this.validateEffects(journal.state, journal.effects);
         if (!Array.isArray(journal.effects)) throw new DomainError('journal', t('Повреждены файловые эффекты журнала.', "The journal's file effects are corrupt."));
         for (const effect of journal.effects) {
           safeRelative(effect.path);
-          if (!isAllowedNotePath(effect.path, this.metadataRoot !== DATA_ROOT) || typeof effect.after !== 'string' || (effect.before !== null && typeof effect.before !== 'string') || Buffer.byteLength(effect.after) > 5_242_880 || !journal.state.nodes.some(n => n.notePath === effect.path)) throw new DomainError('journal', t('Небезопасный путь или содержимое заметки в журнале.', "Unsafe note path or content in the journal."));
+          if (!isAllowedNotePath(effect.path, this.metadataRoot !== DATA_ROOT, this.configDir) || typeof effect.after !== 'string' || (effect.before !== null && typeof effect.before !== 'string') || Buffer.byteLength(effect.after) > 5_242_880 || !journal.state.nodes.some(n => n.notePath === effect.path)) throw new DomainError('journal', t('Небезопасный путь или содержимое заметки в журнале.', "Unsafe note path or content in the journal."));
         }
         const currentSource = await this.readText(this.statePath(project.name)); const hash = digest(currentSource);
-        const current = strictJSON<Project>(currentSource); validateProject(current);
+        const current = strictJSON<Project>(currentSource); this.validate(current);
         if (hash === journal.afterHash || current.receipts[journal.operationId]?.hash === journal.state.receipts[journal.operationId]?.hash) {
           for (const effect of journal.effects) { const text = await this.readText(effect.path, 5_242_880); if (text !== effect.after) throw new DomainError('recovery_conflict', t('Принятая заметка изменилась после прерванной операции. Сверьте файл с журналом.', "The accepted note changed after an interrupted operation. Compare the file with the journal.")); }
         } else if (hash === journal.beforeHash) {
@@ -228,7 +234,7 @@ export class ProjectRepository {
   }
   async historyState(project: Project): Promise<{ undo: string[]; redo: string[] }> {
     const folder = `${this.projectRoot(project.id)}/history`; let files: string[];
-    try { files = await fs.readdir(await resolveSafe(this.vaultRoot, folder)); } catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { undo: [], redo: [] }; throw error; }
+    try { files = await fs.readdir(await this.resolve(folder)); } catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { undo: [], redo: [] }; throw error; }
     const records: History[] = [];
     for (const f of files.filter(f => f.endsWith('.json'))) {
       const h = strictJSON<History>(await this.readText(`${folder}/${f}`, 192 * 1024 * 1024));
