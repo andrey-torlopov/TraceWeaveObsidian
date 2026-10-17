@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm';
 import type { VaultLink, WorkbenchService } from '../types';
 import { safeExternalUrl } from './graphModel';
 import remarkWikiLinks from './remarkWikiLinks';
+import { t } from '../i18n';
 
 export const MAX_INLINE_IMAGE_BYTES = 32 * 1024 * 1024;
 const rasterMimes = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
@@ -37,20 +38,20 @@ function useResolvedLink({ service, sourcePath, link }: LinkProps): Resolved {
   useEffect(() => {
     let cancelled = false;
     if (allowed) void service.resolveVaultLink(sourcePath, link).then(target => {
-      if (!cancelled) setState({ key, pending: false, target, error: target ? null : 'Файл в этом хранилище не найден.' });
+      if (!cancelled) setState({ key, pending: false, target, error: target ? null : t('Файл в этом хранилище не найден.', 'File not found in this vault.') });
     }).catch((error: unknown) => {
-      if (!cancelled) setState({ key, pending: false, target: null, error: error instanceof Error ? error.message : 'Не удалось проверить локальный файл.' });
+      if (!cancelled) setState({ key, pending: false, target: null, error: error instanceof Error ? error.message : t('Не удалось проверить локальный файл.', 'Could not check the local file.') });
     });
     return () => { cancelled = true; };
   }, [service, sourcePath, link, key, allowed]);
-  if (!allowed) return { key, pending: false, target: null, error: 'Автоматическая загрузка внешнего ресурса запрещена.' };
+  if (!allowed) return { key, pending: false, target: null, error: t('Автоматическая загрузка внешнего ресурса запрещена.', 'Automatic loading of external resources is blocked.') };
   return state.key === key ? state : { key, pending: true, target: null, error: null };
 }
 function LocalLink({ children, ...props }: LinkProps & { children: React.ReactNode }) {
   const result = useResolvedLink(props), [error, setError] = useState<string | null>(null);
   return <span className="tw-vault-link-wrap"><button type="button" className="tw-vault-link" role="link" disabled={result.pending || !result.target}
-    title={result.target ? `${result.target.openMode === 'reveal' ? 'Показать файл: ' : ''}${result.target.path}` : result.error ?? 'Проверка файла…'} onClick={() => {
-      setError(null); void props.service.openVaultLink(props.sourcePath, props.link).catch((failure: unknown) => setError(failure instanceof Error ? failure.message : 'Не удалось открыть файл.'));
+    title={result.target ? `${result.target.openMode === 'reveal' ? t('Показать файл: ', 'Show file: ') : ''}${result.target.path}` : result.error ?? t('Проверка файла…', 'Checking file…')} onClick={() => {
+      setError(null); void props.service.openVaultLink(props.sourcePath, props.link).catch((failure: unknown) => setError(failure instanceof Error ? failure.message : t('Не удалось открыть файл.', 'Could not open the file.')));
     }}>{children}</button>{error && <span role="alert"> {error}</span>}</span>;
 }
 export function VaultMarkdownLink({ children, ...props }: LinkProps & { children: React.ReactNode }) {
@@ -65,22 +66,22 @@ function VaultMedia({ target, alt }: { target: VaultLink; alt?: string }) {
     const player = target.mediaKind === 'audio' ? audio.current : target.mediaKind === 'video' ? video.current : null;
     return () => { if (player) { player.pause(); player.removeAttribute('src'); player.load(); } };
   }, [target.resourceUrl, target.mediaKind, failed]);
-  if (!localResourceURL(target.resourceUrl)) return <span className="tw-image-blocked">Недопустимый адрес локального ресурса.</span>;
-  if (failed) return <span className="tw-image-blocked">Просмотр не поддерживается; оригинал доступен по кнопке.</span>;
+  if (!localResourceURL(target.resourceUrl)) return <span className="tw-image-blocked">{t('Недопустимый адрес локального ресурса.', 'Invalid local resource URL.')}</span>;
+  if (failed) return <span className="tw-image-blocked">{t('Просмотр не поддерживается; оригинал доступен по кнопке.', 'Preview is not supported; use the button to access the original.')}</span>;
   if (target.mediaKind === 'image' && rasterMimes.has(target.mimeType) && Number.isSafeInteger(target.byteSize) && target.byteSize >= 0 && target.byteSize < MAX_INLINE_IMAGE_BYTES) return <img className="tw-vault-image" src={target.resourceUrl} alt={alt || target.title} loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={() => setFailedAt(mediaKey)} />;
   if (target.mediaKind === 'audio') return <audio ref={audio} src={target.resourceUrl} controls preload="none" onError={() => setFailedAt(mediaKey)} />;
   if (target.mediaKind === 'video') return <video className="tw-vault-video" ref={video} src={target.resourceUrl} controls preload="none" onError={() => setFailedAt(mediaKey)} />;
-  return <span className="tw-image-blocked">{target.mediaKind === 'image' ? 'Изображение слишком велико или формат не поддерживается.' : 'Для этого формата встроенный просмотр недоступен.'}</span>;
+  return <span className="tw-image-blocked">{target.mediaKind === 'image' ? t('Изображение слишком велико или формат не поддерживается.', 'The image is too large or its format is not supported.') : t('Для этого формата встроенный просмотр недоступен.', 'Inline preview is not available for this format.')}</span>;
 }
 export function VaultMarkdownEmbed({ alt, ...props }: LinkProps & { alt?: string }) {
   const result = useResolvedLink(props), [error, setError] = useState<string | null>(null), target = result.target;
-  if (!isVaultDestination(props.link)) return <span className="tw-image-blocked">▧ {alt || 'Изображение из текста'} · внешняя загрузка отключена</span>;
-  if (!target) return <span className="tw-image-blocked">▧ {alt || 'Вложение'} · {result.pending ? 'проверка файла…' : result.error}</span>;
+  if (!isVaultDestination(props.link)) return <span className="tw-image-blocked">▧ {alt || t('Изображение из текста', 'Image from text')} · {t('внешняя загрузка отключена', 'external loading is disabled')}</span>;
+  if (!target) return <span className="tw-image-blocked">▧ {alt || t('Вложение', 'Attachment')} · {result.pending ? t('проверка файла…', 'checking file…') : result.error}</span>;
   return <span className="tw-vault-embed">
     {!target.isNote && target.mimeType !== 'application/pdf' && <span className="tw-vault-embed-preview"><VaultMedia key={`${target.path}\0${target.resourceUrl}`} target={target} alt={alt} /></span>}
     <button type="button" className="tw-vault-link" title={target.path} onClick={() => {
-      setError(null); void props.service.openVaultLink(props.sourcePath, props.link).catch((failure: unknown) => setError(failure instanceof Error ? failure.message : 'Не удалось открыть оригинал.'));
-    }}>{target.openMode === 'reveal' ? 'Показать файл' : target.isNote ? 'Открыть заметку' : target.mimeType === 'application/pdf' ? 'Открыть PDF' : target.mediaKind === 'file' ? 'Показать файл' : 'Показать оригинал'}: {alt || target.title}</button>
+      setError(null); void props.service.openVaultLink(props.sourcePath, props.link).catch((failure: unknown) => setError(failure instanceof Error ? failure.message : t('Не удалось открыть оригинал.', 'Could not open the original.')));
+    }}>{target.openMode === 'reveal' ? t('Показать файл', 'Show file') : target.isNote ? t('Открыть заметку', 'Open note') : target.mimeType === 'application/pdf' ? t('Открыть PDF', 'Open PDF') : target.mediaKind === 'file' ? t('Показать файл', 'Show file') : t('Показать оригинал', 'Show original')}: {alt || target.title}</button>
     {error && <span role="alert"> {error}</span>}
   </span>;
 }

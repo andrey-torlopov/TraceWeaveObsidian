@@ -16,7 +16,27 @@ Research grows across notes, documents and recordings. TraceWeave adds a graph o
 
 Use existing Markdown notes in place, create documents, attach images, PDFs, audio, video, archives or other binary files, and connect them in a graph or read them as a dossier. Notes remain ordinary Obsidian files. Relationships, attributes and history stay together in one hidden `.twdata/` folder, without extra files beside your notes.
 
-The images above are shared TraceWeave illustrations, not screenshots of the plugin. The plugin interface currently uses Russian labels; the English guides include the exact labels to look for.
+The images above are shared TraceWeave illustrations, not screenshots of the plugin.
+
+**Development version 0.1.4 adds English and Russian interfaces; it is not yet released.** The language follows Obsidian automatically, with an override under **Settings → TraceWeave → Interface language**. Notes, relationship labels and custom types keep their original text. Published version 0.1.3 uses Russian labels.
+
+## Screenshots
+
+Real Obsidian views of a fictional **Lighthouse Archive** research project with English demonstration content and synthetic attachments.
+
+**Follow the evidence.** Connect documents and sources in the graph; dashed lines mark hypotheses.
+
+![Research graph with English demonstration content in the light theme](docs/screenshots/graph-light-en.jpg)
+
+**Read the research as a dossier.** Browse document cards without losing the surrounding investigation.
+
+![Research dossier with English demonstration content in the dark theme](docs/screenshots/dossier-dark-en.jpg)
+
+**Keep the original materials together.** Find images, PDFs, recordings, video and other attached files in one research library.
+
+![Research materials with English demonstration content in the light theme](docs/screenshots/materials-light-en.jpg)
+
+[View all three scenes in light and dark themes, with English and Russian demonstration content](docs/screenshots/README.md).
 
 ## Quick Start
 
@@ -24,10 +44,10 @@ The images above are shared TraceWeave illustrations, not screenshots of the plu
 
 TraceWeave is **not yet listed in the Obsidian Community plugins directory**. Install a published [GitHub release](https://github.com/andrey-torlopov/TraceWeaveObsidian/releases) through [BRAT](docs/en/installation.md#install-with-brat), or follow the manual fallback in the [installation guide](docs/en/installation.md). After directory approval, search **TraceWeave** under **Settings → Community plugins → Browse**, then install and enable it.
 
-1. Open the command palette and run **TraceWeave: Открыть исследование**.
-2. Choose **Создать исследование** (Create research).
-3. Use **Подключить заметку из vault** to add an existing note, or **+ Документ** to create one.
-4. Connect two cards and enter an optional relationship label. Set **Оценка → Гипотеза** for a dashed line.
+1. Open the command palette and run **TraceWeave: Open research** (**Открыть исследование** in Russian).
+2. Choose **Create research** (**Создать исследование**).
+3. Use **Link vault note** (**Подключить заметку из vault**) to add an existing note, or **+ Document** (**+ Документ**) to create one.
+4. Connect two cards and enter an optional relationship label. Set **Assessment → Hypothesis** (**Оценка → Гипотеза**) for a dashed line.
 
 [Continue the quick start](docs/en/quick-start.md).
 
@@ -58,4 +78,4 @@ npm test
 npm run package
 ```
 
-Packaging builds the bundle, creates `release/traceweave-0.1.3.zip` and places individual release assets in `release/0.1.3/`. Users install the compiled plugin, without Node.js or this source tree. The plugin is licensed under [MIT](LICENSE); bundled components retain their [own licenses](THIRD_PARTY_NOTICES.md).
+Packaging builds the bundle, creates `release/traceweave-0.1.4.zip` and places individual release assets in `release/0.1.4/`. This is a local development package until a GitHub release is published. Users install the compiled plugin, without Node.js or this source tree. The plugin is licensed under [MIT](LICENSE); bundled components retain their [own licenses](THIRD_PARTY_NOTICES.md).

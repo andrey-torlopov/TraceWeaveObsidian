@@ -15,7 +15,7 @@ Native checks have been performed on macOS with Obsidian 1.14.4. Windows, Linux,
 1. Open **Settings → Community plugins** and enable community plugins if necessary.
 2. Choose **Browse**, search **TraceWeave**, and open its entry.
 3. Select **Install**, then **Enable**.
-4. Run **TraceWeave: Открыть исследование** from the command palette.
+4. Run **TraceWeave: Open research** (**Открыть исследование** in Russian) from the command palette.
 
 [Obsidian explains directory publication and updates](https://docs.obsidian.md/Plugins/Releasing/Submit%20your%20plugin). Until approval, use a published release through BRAT or the manual method below.
 
@@ -27,7 +27,7 @@ Native checks have been performed on macOS with Obsidian 1.14.4. Windows, Linux,
 2. Open BRAT settings and choose **Add Beta plugin**.
 3. Enter `andrey-torlopov/TraceWeaveObsidian` as the repository. Add the plugin using the published release.
 4. Enable **TraceWeave** in Community plugins if it is not enabled automatically.
-5. Fully restart Obsidian for this vault, then run **TraceWeave: Открыть исследование**.
+5. Fully restart Obsidian for this vault, then run **TraceWeave: Open research** (**Открыть исследование** in Russian).
 
 BRAT requires a release containing `main.js`, `manifest.json` and `styles.css`. An empty repository or GitHub's source-code ZIP is insufficient. For changes in BRAT's interface, follow its linked documentation.
 
@@ -39,6 +39,12 @@ BRAT requires a release containing `main.js`, `manifest.json` and `styles.css`. 
 4. Open Obsidian, enable TraceWeave under Community plugins, and restart the application for this vault.
 
 Do not copy `node_modules`, your research data or the source tree into the plugin folder.
+
+## Interface Language
+
+The latest published version, **0.1.3**, uses Russian labels. English support belongs to **development version 0.1.4**, which is not yet released through the channels above.
+
+In 0.1.4, TraceWeave follows Obsidian's language: Russian for Russian, English for other languages. Choose **Settings → TraceWeave → Interface language** to use **Automatic**, **Русский** or **English** independently. Switching the interface preserves research content and drafts; visible note and attachment paths remain unchanged.
 
 ## Updating and Uninstalling
 

@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import * as path from 'node:path';
 import { parse, postprocess, preprocess } from 'micromark';
 import { decodeString } from 'micromark-util-decode-string';
@@ -5,7 +6,7 @@ import { decodeString } from 'micromark-util-decode-string';
 interface Replacement { start: number; end: number; value: string }
 /** Rewrite destinations only. Markdown spelling, prose, YAML, code and immutable report payloads stay intact. */
 export function rewriteMovedNoteLinks(text: string, oldPath: string, newPath: string, moves: ReadonlyMap<string, string>): string {
-  if (Buffer.byteLength(text, 'utf8') > 5_242_880) throw new Error('Заметка превышает допустимый размер для переноса ссылок.');
+  if (Buffer.byteLength(text, 'utf8') > 5_242_880) throw new Error(t('Заметка превышает допустимый размер для переноса ссылок.', "The note exceeds the size limit for relocating links."));
   const events = postprocess(parse().document().write(preprocess()(text, undefined, true)));
   const protectedRanges: { start: number; end: number }[] = [], replacements: Replacement[] = [];
   const yamlStart = /^(?:\uFEFF)?---\r?\n/u.exec(text);

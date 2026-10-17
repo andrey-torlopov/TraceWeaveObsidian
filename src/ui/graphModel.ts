@@ -1,4 +1,26 @@
 import type { Project, ProjectNode, Relation } from '../types';
+import type { AriaLabelConfig } from '@xyflow/react';
+import { t } from '../i18n';
+
+/** React Flow's controls and keyboard help follow the same locale as our own UI. */
+export function graphAriaLabels(): AriaLabelConfig {
+  return {
+    'node.a11yDescription.default': t('Нажмите Enter или пробел, чтобы выбрать карточку. Стрелки перемещают её; Escape отменяет выбор.', 'Press Enter or Space to select a card. Arrow keys move it; Escape clears selection.'),
+    'node.a11yDescription.keyboardDisabled': t('Нажмите Enter или пробел, чтобы выбрать карточку; Escape отменяет выбор.', 'Press Enter or Space to select a card; Escape clears selection.'),
+    'node.a11yDescription.ariaLiveMessage': ({ direction, x, y }) => {
+      const ruDirection = ({ left: 'влево', right: 'вправо', up: 'вверх', down: 'вниз' } as Record<string, string>)[direction] ?? direction;
+      return t(`Карточка перемещена ${ruDirection}. Новая позиция: x ${x}, y ${y}.`, `Card moved ${direction}. New position: x ${x}, y ${y}.`);
+    },
+    'edge.a11yDescription.default': t('Нажмите Enter или пробел, чтобы выбрать связь; Escape отменяет выбор.', 'Press Enter or Space to select a relation; Escape clears selection.'),
+    'controls.ariaLabel': t('Управление графом', 'Graph controls'),
+    'controls.zoomIn.ariaLabel': t('Приблизить', 'Zoom in'),
+    'controls.zoomOut.ariaLabel': t('Отдалить', 'Zoom out'),
+    'controls.fitView.ariaLabel': t('Показать весь граф', 'Fit graph'),
+    'controls.interactive.ariaLabel': t('Переключить взаимодействие', 'Toggle interaction'),
+    'minimap.ariaLabel': t('Мини-карта', 'Mini map'),
+    'handle.ariaLabel': t('Соединитель', 'Connector'),
+  };
+}
 
 export interface ProjectedRelation {
   id: string;

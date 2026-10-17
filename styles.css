@@ -51,7 +51,7 @@
 .tw-obsidian .tw-nav-actions { display: flex; flex-wrap: wrap; gap: 5px; margin-left: auto; }
 .tw-obsidian .tw-nav-actions button { font-size: 11px; }
 .tw-obsidian .tw-toolbar { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 14px; border-bottom: 1px solid var(--tw-border); }
-.tw-obsidian .tw-toolbar > select { flex: 0 1 135px; min-width: 90px; }
+.tw-obsidian .tw-toolbar > select { flex: 0 1 150px; min-width: 150px; }
 .tw-obsidian .tw-search { flex: 1 1 220px; min-width: 170px; display: flex; gap: 4px; align-items: center; }
 .tw-obsidian .tw-search > span { color: var(--tw-muted); font-size: 22px; }
 .tw-obsidian .tw-search input { flex: 1; min-width: 0; }

@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import Ajv2020 from 'ajv/dist/2020';
 import projectSchema from '../../contracts/obsidian-project.schema.json';
 import historySchema from '../../contracts/history.schema.json';
@@ -12,5 +13,5 @@ const journal = ajv.compile(journalSchema);
 /** Never decide whether recovery is needed from an unvalidated record. */
 export function validateRecord(kind: 'journal' | 'history', value: unknown): void {
   const validator = kind === 'journal' ? journal : history;
-  if (!validator(value)) throw new DomainError(kind, `Повреждён формат ${kind}: ${validator.errors?.[0]?.instancePath || '/'} ${validator.errors?.[0]?.message || ''}. Исходный файл сохранён.`);
+  if (!validator(value)) throw new DomainError(kind, t(`Повреждён формат ${kind}: ${validator.errors?.[0]?.instancePath || '/'} ${validator.errors?.[0]?.message || ''}. Исходный файл сохранён.`, `Invalid ${kind} record: ${validator.errors?.[0]?.instancePath || '/'} ${validator.errors?.[0]?.message || ''}. The original file was preserved.`));
 }

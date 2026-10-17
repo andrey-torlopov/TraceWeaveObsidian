@@ -2,6 +2,14 @@
 
 Plugin versions and portable archive format versions are independent.
 
+## 0.1.4 — English interface and screenshots (unreleased)
+
+- English and Russian interfaces, following the Obsidian language with an override in plugin settings.
+- Language changes preserve the current view, filters, selected material and unsaved metadata drafts.
+- Localized dialogs, validation, accessibility labels and newly generated reports. Notes, custom names, stored paths and existing report bytes stay unchanged.
+- Real light/dark screenshots with separate fictional English and Russian research projects.
+- Include JPEG documentation images in local packages.
+
 ## 0.1.3 — First public distribution
 
 - MIT license for the plugin code.

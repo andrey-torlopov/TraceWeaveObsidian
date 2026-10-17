@@ -1,3 +1,4 @@
+import { t } from './i18n';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import type { VaultLink } from './types';
@@ -96,7 +97,7 @@ export class VaultLinks {
   async resolve(sourcePath: string, raw: string): Promise<VaultLink | null> { return (await this.locate(sourcePath, raw))?.info ?? null; }
   async open(sourcePath: string, raw: string): Promise<void> {
     const resolved = await this.locate(sourcePath, raw);
-    if (!resolved) throw new Error('Ссылка не указывает на доступный файл этого хранилища.');
+    if (!resolved) throw new Error(t('Ссылка не указывает на доступный файл этого хранилища.', "The link does not point to an available file in this vault."));
     const { info } = resolved;
     if (info.openMode !== 'reveal' && (info.isNote || info.mimeType === 'application/pdf' || ['image', 'audio', 'video'].includes(info.mediaKind))) await this.host.open(info.path, resolved.subpath);
     else await this.host.reveal(info.path);

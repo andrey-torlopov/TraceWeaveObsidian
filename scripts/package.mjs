@@ -15,7 +15,7 @@ async function addDocs(folder) {
     const file = path.posix.join(folder, entry.name);
     if (entry.isSymbolicLink()) throw new Error('Symlinks are not allowed in release documentation');
     if (entry.isDirectory()) await addDocs(file);
-    else if (entry.isFile() && /\.(?:md|png)$/u.test(entry.name)) files.push(file);
+    else if (entry.isFile() && /\.(?:md|png|jpe?g)$/u.test(entry.name)) files.push(file);
     else throw new Error(`Unexpected release documentation: ${file}`);
   }
 }

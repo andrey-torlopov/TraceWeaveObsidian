@@ -8,7 +8,7 @@ Create separate investigations with one graph each. Connect existing notes from 
 
 Document metadata includes type, an optional per-card emoji, assessment, confidence, typed attributes and evidence. Attributes support text, number, boolean, date, date/time, URL and coordinates. Evidence can reference another document, a registered file or an explicit URL, with a quotation, locator and comment.
 
-Search and filter the research by text, type, assessment and group. Renaming a note through Obsidian updates its central binding. If a note was moved and edited while Obsidian was closed, explicitly relink it through **Метаданные → Привязка заметки**; the node ID and relationships remain intact.
+Search and filter the research by text, type, assessment and group. Renaming a note through Obsidian updates its central binding. If a note was moved and edited while Obsidian was closed, explicitly relink it through **Metadata → Linked note** (**Метаданные → Привязка заметки**); the node ID and relationships remain intact.
 
 ## Relationships and Groups
 
@@ -28,7 +28,7 @@ Import explicitly selected files, including files outside the vault; the plugin 
 | Archives, extensionless files, other binaries | Listed and preserved; reveal the file in the system file manager |
 | HTML, SVG, unknown formats | Retained as files; no active-content preview |
 
-**Материалы → Проверить оригиналы** checks the library for missing or changed files. The plugin library lists arbitrary formats independently of Obsidian's **Show all file types** setting. Enable that setting separately if you also want such files in the native file explorer.
+**Materials → Verify originals** (**Материалы → Проверить оригиналы**) checks the library for missing or changed files. The plugin library lists arbitrary formats independently of Obsidian's **Show all file types** setting. Enable that setting separately if you also want such files in the native file explorer.
 
 ## Links and Snapshots
 

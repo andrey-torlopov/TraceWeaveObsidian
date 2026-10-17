@@ -1,3 +1,5 @@
+import { t } from '../i18n';
+
 export interface DraftPersistence {
   loadDrafts(projectId?: string): Promise<Record<string, unknown>>;
   saveDraft(key: string, value: unknown | null): Promise<void>;
@@ -46,8 +48,8 @@ export class MetadataDraftStore {
     this.updateStatus(projectId, { loading: true, error: null });
     const work = persistence.loadDrafts(projectId).then((records) => {
       for (const [key, record] of Object.entries(records)) {
-        if (!key.startsWith(`${projectId}/`)) throw new Error('Черновик относится к другому исследованию.');
-        if (!record || typeof record !== 'object' || Array.isArray(record) || (record as Record<string, unknown>).format !== FORMAT || !Object.hasOwn(record, 'value')) throw new Error('Неизвестный формат черновика метаданных.');
+        if (!key.startsWith(`${projectId}/`)) throw new Error(t('Черновик относится к другому исследованию.', 'The draft belongs to another research project.'));
+        if (!record || typeof record !== 'object' || Array.isArray(record) || (record as Record<string, unknown>).format !== FORMAT || !Object.hasOwn(record, 'value')) throw new Error(t('Неизвестный формат черновика метаданных.', 'Unknown metadata draft format.'));
         const touched = this.touched.has(key) || [...this.touched].some((prefix) => prefix.endsWith('/') && key.startsWith(prefix));
         if (!touched && !this.drafts.has(key)) { this.drafts.set(key, (record as { value: unknown }).value); this.restored.add(key); }
         else if (touched && !this.drafts.has(key) && !this.pending.has(key)) this.queue(key, null);
