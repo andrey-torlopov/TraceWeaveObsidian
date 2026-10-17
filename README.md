@@ -18,7 +18,9 @@ Use existing Markdown notes in place, create documents, attach images, PDFs, aud
 
 The images above are shared TraceWeave illustrations, not screenshots of the plugin.
 
-**TraceWeave 0.1.5 supports English and Russian interfaces.** The language follows Obsidian automatically, with an override under **Settings → TraceWeave → Interface language**. Notes, relationship labels and custom types keep their original text.
+**TraceWeave 0.1.6 supports English and Russian interfaces.** The language follows Obsidian automatically, with an override under **Settings → TraceWeave → Interface language**. Notes, relationship labels and custom types keep their original text.
+
+Use **Export report** to read a research project on your phone without the plugin: a visible folder contains `summary.md`, a native `scheme.canvas`, and copied attachments. Set the destination under **Settings → TraceWeave → Reports folder**; an empty path uses the vault root. [Report instructions](docs/en/backup-import.md#readable-report-for-desktop-and-mobile).
 
 ## Screenshots
 
@@ -42,7 +44,7 @@ Real Obsidian views of a fictional **Lighthouse Archive** research project with 
 
 **Desktop Obsidian 1.14.4 or newer.** No server, Docker, TraceWeave account or runtime internet connection is required.
 
-TraceWeave is **not yet listed in the Obsidian Community plugins directory**. Install a published [GitHub release](https://github.com/andrey-torlopov/TraceWeaveObsidian/releases) through [BRAT](docs/en/installation.md#install-with-brat), or follow the manual fallback in the [installation guide](docs/en/installation.md). After directory approval, search **TraceWeave** under **Settings → Community plugins → Browse**, then install and enable it.
+Install from the [Obsidian Community directory](https://community.obsidian.md/plugins/traceweave): **Settings → Community plugins → Browse → TraceWeave → Install → Enable**. [BRAT and manual installation](docs/en/installation.md) remain available for testing and fallback.
 
 1. Open the command palette and run **TraceWeave: Open research** (**Открыть исследование** in Russian).
 2. Choose **Create research** (**Создать исследование**).

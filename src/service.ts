@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { applyCommands, createProject, searchProject, DomainError } from './domain';
-import type { Asset, Command, ID, Project, ResourceCandidate, SnapshotRecord, ViewState, VaultLink, WorkbenchService, WorkbenchSnapshot } from './types';
+import type { Asset, Command, ID, Project, ReadableReportResult, ResourceCandidate, SnapshotRecord, ViewState, VaultLink, WorkbenchService, WorkbenchSnapshot } from './types';
 import { FileStore, resolveSafe, safeRelative } from './storage/files';
 import { ProjectRepository, digest, stableJSON, strictJSON } from './storage/repository';
 import { exportProject, exportTraceWeaveArchive, stageImport, createReport, verifyReport } from './portability';
@@ -10,6 +10,7 @@ import { DATA_ROOT, NOTES_ROOT, RESOURCES_ROOT, hasControlCharacters, isConfigur
 import { migrateLegacyVault } from './storage/migration';
 import { caseFold } from './casefold';
 import { t } from './i18n';
+import { exportReadableReport as writeReadableReport } from './readable-report';
 
 export interface Host {
  listNotes(): { path: string; title: string }[];
@@ -17,6 +18,7 @@ export interface Host {
  resourceUrl(path: string): string;
  showFile(path: string): Promise<void>;
  filePath(file: File): Promise<string>;
+ reportsFolder?(): string;
  resolveVaultLink?(sourcePath: string, link: string): Promise<VaultLink | null>;
  openVaultLink?(sourcePath: string, link: string): Promise<void>;
 }
@@ -209,6 +211,23 @@ export class LocalWorkbench implements WorkbenchService {
     await this.refresh(await this.repository.execute(p.id, [{ kind: 'snapshot.register', snapshot }], { baseRevision: p.revision, expectedStateHash: digest(stableJSON(p)) })); return snapshot;
   }); }
   async openReport(id: ID) { const report = this.project().snapshots.find(s => s.id === id); if (!report) throw new Error(t('Снимок не найден.', "Snapshot not found.")); await verifyReport(this.repository.vaultRoot, report); await this.host.openNote(report.path.replace(/snapshot\.json$/u, 'report.md')); }
+  exportReadableReport(): Promise<ReadableReportResult> { return this.run(async () => {
+    this.repository.assertWritable(this.project().id);
+    await this.reconcileProject();
+    const project = structuredClone(this.project()), stateHash = digest(stableJSON(project));
+    const result = await writeReadableReport(this.repository.vaultRoot, project, this.host.reportsFolder?.() ?? '', {
+      configDir: this.repository.configDir,
+      resolveLink: this.host.resolveVaultLink?.bind(this.host),
+      assertUnchanged: async () => {
+        const current = await this.repository.read(project.id);
+        if (digest(stableJSON(current)) !== stateHash) throw new DomainError('revision_conflict', t('Исследование изменилось во время экспорта. Повторите создание отчёта.', 'The research changed during export. Create the report again.'));
+      },
+    });
+    this.publish({ message: t(`Отчёт сохранён: ${result.summaryPath}`, `Report saved: ${result.summaryPath}`) });
+    try { await this.host.openNote(result.summaryPath); }
+    catch (error) { throw new DomainError('report_open', t(`Отчёт создан: ${result.summaryPath}. Не удалось открыть файл: ${error instanceof Error ? error.message : String(error)}`, `Report created: ${result.summaryPath}. Could not open the file: ${error instanceof Error ? error.message : String(error)}`)); }
+    return result;
+  }); }
   exportProject(): Promise<string> { return this.run(async () => {
     this.repository.assertWritable(this.project().id); await this.reconcileProject(); const p = this.project();
     const relative = `${DATA_ROOT}/exports/${p.id}-${p.revision}-${randomUUID()}.zip`, absolute = await resolveSafe(this.repository.vaultRoot, relative, true, this.repository.configDir);

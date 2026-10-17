@@ -1,7 +1,7 @@
 {
   "id": "traceweave",
   "name": "TraceWeave",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "minAppVersion": "1.14.4",
   "description": "Research graphs, dossiers and files stored in your vault with centralized metadata.",
   "author": "andrey-torlopov",

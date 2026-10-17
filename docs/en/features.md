@@ -32,8 +32,8 @@ Import explicitly selected files, including files outside the vault; the plugin 
 
 ## Links and Snapshots
 
-Vault wikilinks, local Markdown links and embeds resolve from the source note's path. Supported local images and media are previewed; embedded notes lead to the native editor instead of recursively rendering the vault. Remote images are not fetched automatically. Merely linking a file does not register it in the material library or add it to exports.
+Vault wikilinks, local Markdown links and embeds resolve from the source note's path. Supported local images and media are previewed; embedded notes lead to the native editor instead of recursively rendering the vault. Remote images are not fetched automatically. Merely linking a file does not register it in the material library or add it to backup ZIPs/internal snapshots. **Export report** also copies resolvable local file links into its separate readable folder.
 
-Reports capture explicit documents, their connecting relationships and registered attached materials. Later edits do not change the snapshot. The report view is read-only; large reports above the **16 MiB preview limit** remain stored in full and can be revealed in the file manager. Captured snapshot PDFs and other files are revealed there; visible source PDFs still open natively.
+Internal report snapshots capture explicit documents, their connecting relationships and registered attached materials. Later edits do not change the snapshot. The report view is read-only; large reports above the **16 MiB preview limit** remain stored in full and can be revealed in the file manager. Captured snapshot PDFs and other files are revealed there; visible source PDFs still open natively.
 
 [Backup and import/export](backup-import.md) · [Data and security](data-and-security.md) · [Documentation](index.md)

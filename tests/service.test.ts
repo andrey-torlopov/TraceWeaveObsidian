@@ -10,6 +10,7 @@ import { ProjectRepository, digest, stableJSON } from '../src/storage/repository
 import type { Project, Relation, ViewState } from '../src/types';
 
 class FilesystemHost implements Host {
+  reportsFolder?: () => string;
   readonly opened: string[] = []; readonly shown: string[] = []; readonly sources = new Map<string, string>();
   constructor(readonly root: string) {}
   listNotes(): { path: string; title: string }[] {
@@ -289,9 +290,65 @@ test('a read-only second service refuses imports/reports before creating orphan 
       second = new LocalWorkbench(new ProjectRepository(root), host); await second.initialize(); assert.equal(second.repository.readOnly, true); const before = await fileTree(root);
       await assert.rejects(() => second!.importFiles([new File([], 'opaque.bin')]), /недоступна/); assert.deepEqual(await fileTree(root), before);
       await assert.rejects(() => second!.createReport('Should not exist'), /недоступна/); assert.deepEqual(await fileTree(root), before);
+      await assert.rejects(() => second!.exportReadableReport(), /недоступна/); assert.deepEqual(await fileTree(root), before);
       await assert.rejects(() => second!.registerResource(`Исследования/Вложения/${p.id}/nonexistent.bin`), /недоступна/); assert.deepEqual(await fileTree(root), before);
       await assert.rejects(() => second!.importArchive(new File([], 'not-even-opened.zip')), /недоступна/); assert.deepEqual(await fileTree(root), before);
       assert.equal((await service.repository.read(p.id)).revision, 0);
     } finally { await second?.dispose(); await fs.rm(sourceRoot, { recursive: true, force: true }); }
+  });
+});
+
+test('readable report exports all active research into the configured vault folder without changing source state', async () => {
+  await withService(async (service, host, root) => {
+    let reportsFolder = '';
+    host.reportsFolder = () => reportsFolder;
+    await service.createProject('Отчёт для телефона');
+    const first = await service.createNote('Первый'), second = await service.createNote('Второй');
+    for (const node of current(service).nodes) {
+      await fs.writeFile(path.join(root, node.notePath), `Полный текст: ${node.title}`);
+      await service.onFileChanged(node.notePath);
+    }
+    await service.execute([{ kind: 'relation.create', relation: relation(first, second) }]);
+    const sourcePath = path.join(root, 'recording.bin'), bytes = Buffer.from([0, 255, 35, 18]);
+    await fs.writeFile(sourcePath, bytes); host.sources.set('recording.bin', sourcePath);
+    await service.importFiles([new File([], 'recording.bin')], first);
+    const before = structuredClone(current(service));
+    const report = await service.exportReadableReport();
+    assert.equal(report.directory, 'Отчёт для телефона');
+    assert.equal(report.summaryPath, report.directory + '/summary.md');
+    assert.equal(report.canvasPath, report.directory + '/scheme.canvas');
+    assert.equal(host.opened.at(-1), report.summaryPath);
+    assert.deepEqual(current(service), before);
+    const text = await fs.readFile(path.join(root, report.summaryPath), 'utf8');
+    assert.ok(text.includes('Полный текст: Первый')); assert.ok(text.includes('Полный текст: Второй'));
+    assert.ok(text.includes('Основание'));
+    const canvas = JSON.parse(await fs.readFile(path.join(root, report.canvasPath), 'utf8'));
+    assert.equal(canvas.nodes.length, 2); assert.equal(canvas.edges.length, 1);
+    const outputFiles = (await fileTree(root)).filter(file => file.startsWith(report.directory + '/Attachments/'));
+    assert.equal(outputFiles.length, 1); assert.deepEqual(await fs.readFile(path.join(root, outputFiles[0])), bytes);
+    reportsFolder = 'Reports/For phone';
+    const nested = await service.exportReadableReport();
+    assert.equal(nested.directory, 'Reports/For phone/Отчёт для телефона');
+    const repeated = await service.exportReadableReport();
+    assert.equal(repeated.directory, 'Reports/For phone/Отчёт для телефона (2)');
+    assert.equal(await fs.readFile(path.join(root, report.summaryPath), 'utf8'), text);
+    assert.deepEqual(current(service), before);
+    await fs.writeFile(path.join(root, before.nodes[0].notePath), 'Later source edit');
+    await service.onFileChanged(before.nodes[0].notePath);
+    assert.equal(await fs.readFile(path.join(root, report.summaryPath), 'utf8'), text);
+    assert.deepEqual(await fs.readFile(path.join(root, before.blobs[0].path)), bytes);
+  });
+});
+
+test('readable export failures preserve source files and describe an already saved report when opening fails', async () => {
+  await withService(async (service, host, root) => {
+    await service.createProject('Opening failure'); await service.createNote('Note');
+    host.openNote = async () => { throw new Error('Synthetic editor failure'); };
+    await assert.rejects(() => service.exportReadableReport(), /Отчёт создан: Opening failure\/summary\.md.*Synthetic editor failure/u);
+    assert.ok((await fs.readFile(path.join(root, 'Opening failure/summary.md'), 'utf8')).includes('Note'));
+    const before = await fileTree(root);
+    host.reportsFolder = () => '../outside';
+    await assert.rejects(() => service.exportReadableReport());
+    assert.deepEqual(await fileTree(root), before);
   });
 });

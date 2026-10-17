@@ -1,6 +1,6 @@
 {
   "name": "traceweave-obsidian",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Local research graph for Obsidian with centralized metadata and ordinary Markdown notes.",
   "private": true,
   "license": "MIT",

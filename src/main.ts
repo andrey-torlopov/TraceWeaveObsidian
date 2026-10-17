@@ -1,4 +1,4 @@
-import { FileSystemAdapter, getLanguage, ItemView, Notice, Platform, Plugin, PluginSettingTab, TFile, type App, type SettingDefinitionItem, type WorkspaceLeaf, type ViewStateResult } from 'obsidian';
+import { FileSystemAdapter, getLanguage, ItemView, Notice, Platform, Plugin, PluginSettingTab, TFile, type App, type EventRef, type SettingDefinitionItem, type WorkspaceLeaf, type ViewStateResult } from 'obsidian';
 import * as electron from 'electron';
 import { LocalWorkbench } from './service';
 import { ProjectRepository } from './storage/repository';
@@ -10,6 +10,7 @@ import { getMigratedPath, getOriginalPath } from './storage/migration';
 import { loadReportDocument, reportDocumentInfo } from './report-document';
 import { mountReportPreview } from './ui/report';
 import { resolveLocale, setLocale, t } from './i18n';
+import { validateReportFolder } from './readable-report';
 
 const VIEW_TYPE = 'traceweave-workbench';
 const REPORT_VIEW_TYPE = 'traceweave-report';
@@ -70,6 +71,7 @@ class TraceWeaveReportView extends ItemView {
 class TraceWeaveSettings extends PluginSettingTab {
   private refreshGeneration = 0;
   private disposed = false;
+  private reportFolderDraft: string | null = null;
   constructor(app: App, readonly owner: TraceWeavePlugin) { super(app, owner); }
   getSettingDefinitions(): SettingDefinitionItem[] {
     return [
@@ -78,6 +80,10 @@ class TraceWeaveSettings extends PluginSettingTab {
         // A render definition lets this locale-dependent row rebuild with its translated name and options.
         setting.addDropdown(dropdown => dropdown.addOption('auto', t('Автоматически', 'Automatic')).addOption('ru', 'Русский').addOption('en', 'English').setValue(this.owner.languagePreference).onChange(value => { void this.setControlValue('language', value); }));
       } },
+      { name: t('Папка отчётов', 'Reports folder'), desc: t('Путь относительно корня хранилища Obsidian, например Отчёты/Исследования. Пустое поле — корень хранилища. Нажмите «Сохранить», чтобы применить путь.', 'Path relative to the Obsidian vault root, for example Reports/Research. Leave blank to use the vault root. Click “Save” to apply the path.'), render: setting => {
+        setting.addText(text => text.setPlaceholder(t('Корень хранилища', 'Vault root')).setValue(this.reportFolderDraft ?? this.owner.reportsFolder).onChange(value => { this.reportFolderDraft = value; }));
+        setting.addButton(button => button.setButtonText(t('Сохранить', 'Save')).onClick(() => { void this.setControlValue('reportsFolder', this.reportFolderDraft ?? this.owner.reportsFolder); }));
+      } },
       { name: t('Скрытые служебные данные .twdata', 'Hidden application data in .twdata'), desc: t('Связи, история, настройки и снимки находятся в .twdata/. Обычные заметки создаются в Исследования/Заметки, материалы — в Исследования/Вложения. Подключённые заметки из других папок остаются на своих местах.', 'Relationships, history, settings and snapshots are stored in .twdata/. New notes use Исследования/Заметки and materials use Исследования/Вложения. Existing notes from other folders stay in place.') },
       { name: t('Копирование и синхронизация', 'Backup and synchronization'), desc: t('Файловый backup должен включать скрытую .twdata. Obsidian Sync исключает dot-папки и не переносит служебные данные TraceWeave; одного переноса заметок недостаточно.', 'File backups must include the hidden .twdata folder. Obsidian Sync excludes dot-folders and does not transfer TraceWeave metadata; copying notes alone is insufficient.') },
       { name: t('Обычные заметки vault', 'Existing vault notes'), desc: t('В исследовании выберите «Подключить заметку из vault» или используйте контекстное меню Markdown-файла. Заметка подключается без копирования и редактируется обычным редактором Obsidian.', 'Choose “Link vault note” in a research project or use a Markdown file’s context menu. The note is linked in place and remains editable in the standard Obsidian editor.') },
@@ -85,12 +91,18 @@ class TraceWeaveSettings extends PluginSettingTab {
       { name: t('Режим', 'Mode'), desc: t('Локальный desktop, один активный писатель. Текст редактируется в обычном редакторе Obsidian. Облачное одновременное редактирование и внешние хранилища в эту версию не входят.', 'Local desktop use with one active writer. Text is edited in the standard Obsidian editor. Concurrent cloud editing and external storage are not supported in this version.') },
     ];
   }
-  getControlValue(key: string): unknown { return key === 'language' ? this.owner.languagePreference : undefined; }
+  getControlValue(key: string): unknown { return key === 'language' ? this.owner.languagePreference : key === 'reportsFolder' ? this.owner.reportsFolder : undefined; }
   async setControlValue(key: string, value: unknown): Promise<void> {
-    if (key !== 'language' || !isLanguagePreference(value)) return;
+    if (!(key === 'language' && isLanguagePreference(value)) && !(key === 'reportsFolder' && typeof value === 'string')) return;
     const generation = this.refreshGeneration;
-    try { await this.owner.changeLanguage(value); }
-    catch (error) { new Notice(error instanceof Error ? error.message : t('Не удалось сменить язык.', 'Could not change the language.')); }
+    try {
+      if (key === 'language' && isLanguagePreference(value)) await this.owner.changeLanguage(value);
+      else if (typeof value === 'string') {
+        await this.owner.changeReportsFolder(value);
+        if (this.reportFolderDraft === value) this.reportFolderDraft = null;
+      }
+    }
+    catch (error) { new Notice(error instanceof Error ? error.message : t('Не удалось сохранить настройку.', 'Could not save the setting.')); }
     finally {
       if (!this.disposed && generation === this.refreshGeneration) this.update();
     }
@@ -106,17 +118,27 @@ export default class TraceWeavePlugin extends Plugin {
   private ready: Promise<void> | null = null;
   private unloaded = false;
   languagePreference: LanguagePreference = 'auto';
+  reportsFolder = '';
   private storedData: Record<string, unknown> = {};
-  private languageChanges: Promise<void> = Promise.resolve();
+  private settingsChanges: Promise<void> = Promise.resolve();
   private ribbon: HTMLElement | null = null;
   private settingsTab: TraceWeaveSettings | null = null;
   private eventTimers = new Map<string, number>();
+  private pendingFileOpens = new Set<() => void>();
   async onload() {
     const data: unknown = await this.loadData();
     if (this.unloaded) return;
     this.storedData = data && typeof data === 'object' && !Array.isArray(data) ? data as Record<string, unknown> : {};
     this.languagePreference = isLanguagePreference(this.storedData.language) ? this.storedData.language : 'auto';
     setLocale(resolveLocale(this.languagePreference === 'auto' ? getLanguage() : this.languagePreference));
+    if (this.storedData.reportsFolder !== undefined) {
+      try {
+        if (typeof this.storedData.reportsFolder !== 'string') throw new Error(t('Путь должен быть строкой.', 'The path must be a string.'));
+        this.reportsFolder = validateReportFolder(this.storedData.reportsFolder, this.app.vault.configDir);
+      } catch (error) {
+        this.notify(new Error(t('Некорректная папка отчётов в настройках. Используется корень хранилища. ', 'The saved reports folder is invalid. Using the vault root. ') + (error instanceof Error ? error.message : '')));
+      }
+    }
     if (!Platform.isDesktopApp || !(this.app.vault.adapter instanceof FileSystemAdapter)) { new Notice(t('TraceWeave требует desktop-версию Obsidian.', 'TraceWeave requires desktop Obsidian.')); return; }
     const adapter = this.app.vault.adapter, root = adapter.getBasePath(), configDir = this.app.vault.configDir;
     const technical = (relative: string) => isTechnicalPath(relative, configDir);
@@ -139,8 +161,10 @@ export default class TraceWeavePlugin extends Plugin {
       await this.app.vault.create(relative, text);
     } });
     this.service = new LocalWorkbench(repo, {
+      reportsFolder: () => this.reportsFolder,
       listNotes: () => this.app.vault.getMarkdownFiles().map(f => ({ path: f.path, title: f.basename })),
       openNote: async relative => {
+        if (this.unloaded) throw new Error(t('Плагин закрыт.', 'The plugin is closed.'));
         if (reportDocumentInfo(relative)) {
           const leaf = this.app.workspace.getLeaf('tab');
           await leaf.setViewState({ type: REPORT_VIEW_TYPE, active: true, state: { path: relative } });
@@ -148,9 +172,16 @@ export default class TraceWeavePlugin extends Plugin {
           return;
         }
         if (technical(relative)) throw new Error(t('Служебный файл нельзя открыть как обычную заметку Obsidian.', 'An application data file cannot be opened as a regular Obsidian note.'));
-        const file = this.app.vault.getFileByPath(relative);
+        let file = this.app.vault.getFileByPath(relative);
+        if (!file) {
+          await resolveSafe(root, relative);
+          // File-system publication can precede Obsidian's create/rename index events.
+          // openLinkText would try to create that existing file instead of opening it.
+          if (await adapter.exists(relative)) file = await this.waitForIndexedFile(relative);
+        }
+        if (this.unloaded) throw new Error(t('Плагин закрыт.', 'The plugin is closed.'));
         if (file) await this.app.workspace.getLeaf('tab').openFile(file, { active: true });
-        else { await resolveSafe(root, relative); await this.app.workspace.openLinkText(relative, '', 'tab'); }
+        else await this.app.workspace.openLinkText(relative, '', 'tab');
       },
       resourceUrl: relative => adapter.getResourcePath(relative),
       resolveVaultLink: (source, link) => links.resolve(source, link),
@@ -216,8 +247,57 @@ export default class TraceWeavePlugin extends Plugin {
       this.ribbon?.setAttribute('aria-label', t('Открыть TraceWeave', 'Open TraceWeave'));
       await Promise.all(this.app.workspace.getLeavesOfType(REPORT_VIEW_TYPE).map(leaf => leaf.view instanceof TraceWeaveReportView ? leaf.view.refreshLanguage() : Promise.resolve()));
     };
-    this.languageChanges = this.languageChanges.catch(() => {}).then(change);
-    return this.languageChanges;
+    return this.enqueueSettingsChange(change);
+  }
+  changeReportsFolder(value: string): Promise<void> {
+    return this.enqueueSettingsChange(async () => {
+      if (this.unloaded) throw new Error(t('Плагин закрыт.', 'The plugin is closed.'));
+      const reportsFolder = validateReportFolder(value, this.app.vault.configDir);
+      const next = { ...this.storedData, reportsFolder };
+      await this.saveData(next);
+      if (this.unloaded) return;
+      this.storedData = next;
+      this.reportsFolder = reportsFolder;
+    });
+  }
+  private enqueueSettingsChange(change: () => Promise<void>): Promise<void> {
+    this.settingsChanges = this.settingsChanges.then(change, change);
+    return this.settingsChanges;
+  }
+  private waitForIndexedFile(relative: string): Promise<TFile> {
+    if (this.unloaded) return Promise.reject(new Error(t('Плагин закрыт.', 'The plugin is closed.')));
+    const existing = this.app.vault.getFileByPath(relative);
+    if (existing) return Promise.resolve(existing);
+    const vault = this.app.vault, ownerWindow = this.app.workspace.containerEl.win;
+    return new Promise((resolve, reject) => {
+      const refs: EventRef[] = [];
+      let timer: number | undefined, finished = false, registered = false;
+      const finish = (file: TFile | null, error?: Error) => {
+        if (finished) return;
+        finished = true;
+        if (timer !== undefined) ownerWindow.clearTimeout(timer);
+        refs.forEach(ref => vault.offref(ref));
+        this.pendingFileOpens.delete(cancel);
+        if (file) resolve(file);
+        else reject(error ?? new Error(t('Файл сохранён, но Obsidian ещё не добавил его в индекс. Откройте его из проводника: ', 'The file was saved, but Obsidian has not indexed it yet. Open it from the file explorer: ') + relative));
+      };
+      const cancel = () => finish(null, new Error(t('Плагин закрыт.', 'The plugin is closed.')));
+      const check = () => {
+        if (!registered || finished) return;
+        if (this.unloaded) { cancel(); return; }
+        const file = vault.getFileByPath(relative);
+        if (file) finish(file);
+      };
+      this.pendingFileOpens.add(cancel);
+      try {
+        refs.push(vault.on('create', check));
+        refs.push(vault.on('rename', check));
+        timer = ownerWindow.setTimeout(() => { check(); if (!finished) finish(null); }, 5000);
+        registered = true;
+        // Close the race between the first lookup and installing both event listeners.
+        check();
+      } catch (error) { finish(null, error instanceof Error ? error : new Error(t('Не удалось дождаться индексации файла: ', 'Could not wait for the file to be indexed: ') + relative)); }
+    });
   }
   private notify(error: unknown) { new Notice(error instanceof Error ? error.message : t('TraceWeave: операция не завершена.', 'TraceWeave: the operation did not complete.'), 10_000); }
   private ensureReady() { if (this.unloaded) return Promise.reject(new Error(t('Плагин закрыт.', 'The plugin is closed.'))); if (!this.ready) this.ready = this.service.initialize(); return this.ready; }
@@ -235,7 +315,8 @@ export default class TraceWeavePlugin extends Plugin {
   }
   onunload() {
     this.unloaded = true; this.eventTimers.forEach(timer => window.clearTimeout(timer)); this.eventTimers.clear();
+    this.pendingFileOpens.forEach(cancel => cancel());
     this.settingsTab?.disposeRefresh();
-    if (this.service) void (async () => { try { await this.languageChanges; await this.ready; } catch (error) { this.notify(error); } try { await flushWorkbenchDrafts(this.service); } finally { await this.service.dispose(); } })().catch(error => this.notify(error));
+    if (this.service) void (async () => { try { await this.settingsChanges; await this.ready; } catch (error) { this.notify(error); } try { await flushWorkbenchDrafts(this.service); } finally { await this.service.dispose(); } })().catch(error => this.notify(error));
   }
 }

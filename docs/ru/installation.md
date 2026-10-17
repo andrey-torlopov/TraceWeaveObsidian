@@ -10,14 +10,14 @@
 
 ## Как найти TraceWeave в Obsidian
 
-**Публикация в каталоге Community plugins ещё ожидается. Один релиз GitHub не делает плагин доступным в поиске Obsidian.** После одобрения и публикации каталога:
+TraceWeave доступен в [каталоге Obsidian Community](https://community.obsidian.md/plugins/traceweave). Для установки:
 
 1. Откройте **Настройки → Сторонние плагины** и при необходимости разрешите их использование.
 2. Нажмите **Обзор**, найдите **TraceWeave** и откройте его страницу.
 3. Нажмите **Установить**, затем **Включить**.
 4. В палитре команд выполните **TraceWeave: Открыть исследование**.
 
-[Официальный порядок публикации и обновлений](https://docs.obsidian.md/Plugins/Releasing/Submit%20your%20plugin). До одобрения используйте опубликованный релиз через BRAT либо ручной способ ниже.
+[Официальный порядок публикации и обновлений](https://docs.obsidian.md/Plugins/Releasing/Submit%20your%20plugin). BRAT и ручная установка — дополнительные способы установки.
 
 ## Установка через BRAT
 
@@ -33,7 +33,7 @@ BRAT нужен релиз с `main.js`, `manifest.json` и `styles.css`. Пус
 
 ## Ручной запасной способ
 
-1. Откройте [GitHub Releases](https://github.com/andrey-torlopov/TraceWeaveObsidian/releases), скачайте установочный `traceweave-0.1.4.zip` либо три собранных файла отдельно.
+1. Откройте [GitHub Releases](https://github.com/andrey-torlopov/TraceWeaveObsidian/releases), скачайте три собранных файла: `main.js`, `manifest.json` и `styles.css`.
 2. Создайте в vault папку `.obsidian/plugins/traceweave/`.
 3. Положите `main.js`, `manifest.json`, `styles.css` непосредственно в неё. Не должно быть дополнительной вложенности `traceweave/traceweave/`.
 4. Откройте Obsidian, включите TraceWeave в сторонних плагинах и перезапустите приложение с этим vault.

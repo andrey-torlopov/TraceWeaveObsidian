@@ -16,7 +16,7 @@ let state: WorkbenchSnapshot = { projects: [{ id: project.id, title: project.tit
 let failMoves = false;
 const drafts: Record<string, unknown> = {};
 let view: Partial<ViewState> = {};
-const commands: Command[] = [], adopted: string[] = [];
+const commands: Command[] = [], adopted: string[] = [], readableReports: string[] = [];
 const publish = (changes: Partial<WorkbenchSnapshot>) => { state = { ...state, ...changes }; for (const listener of listeners) listener(); };
 const unused = async (): Promise<never> => { throw new Error('Операция вне сценария mounted UI smoke'); };
 const service: WorkbenchService = {
@@ -34,7 +34,7 @@ const service: WorkbenchService = {
   resolveVaultLink: async () => null, openVaultLink: unused,
   importFiles: unused, cancelImport: () => {}, discoverResources: async () => [], registerResource: unused,
   resourceUrl: () => { throw new Error('В этом тесте нет ресурсов'); }, showAsset: unused, verifyAssets: async () => [], search: async () => [],
-  createReport: unused, openReport: unused, exportProject: unused, exportTraceWeave: unused, importArchive: unused,
+  createReport: unused, openReport: unused, exportReadableReport: async () => { readableReports.push(state.project!.id); return { directory: 'UI smoke', summaryPath: 'UI smoke/summary.md', canvasPath: 'UI smoke/scheme.canvas' }; }, exportProject: unused, exportTraceWeave: unused, importArchive: unused,
   undo: unused, redo: unused, recover: async () => {},
   loadDrafts: async () => ({ ...drafts }), saveDraft: async (key, value) => { if (value === null) delete drafts[key]; else drafts[key] = value; },
   loadView: async () => view, saveView: async (state) => { view = state; },
@@ -42,5 +42,5 @@ const service: WorkbenchService = {
 const container = document.getElementById('workbench')!;
 let unmount = mountWorkbench(container, service);
 let currentService = service;
-declare global { interface Window { twHarness: { state: () => WorkbenchSnapshot; pulse: () => void; failMoves: () => void; drafts: Record<string, unknown>; commands: Command[]; adopted: string[]; view: () => Partial<ViewState>; remount: () => void; restart: () => void; stop: () => void; flush: () => Promise<void> } } }
-window.twHarness = { state: () => state, pulse: () => publish({ message: 'Обновление статуса' }), failMoves: () => { failMoves = true; }, drafts, commands, adopted, view: () => view, remount: () => { unmount(); unmount = mountWorkbench(container, currentService); }, restart: () => { unmount(); currentService = { ...service }; unmount = mountWorkbench(container, currentService); }, stop: () => unmount(), flush: () => flushWorkbenchDrafts(currentService) };
+declare global { interface Window { twHarness: { state: () => WorkbenchSnapshot; pulse: () => void; failMoves: () => void; drafts: Record<string, unknown>; commands: Command[]; adopted: string[]; readableReports: string[]; view: () => Partial<ViewState>; remount: () => void; restart: () => void; stop: () => void; flush: () => Promise<void> } } }
+window.twHarness = { state: () => state, pulse: () => publish({ message: 'Обновление статуса' }), failMoves: () => { failMoves = true; }, drafts, commands, adopted, readableReports, view: () => view, remount: () => { unmount(); unmount = mountWorkbench(container, currentService); }, restart: () => { unmount(); currentService = { ...service }; unmount = mountWorkbench(container, currentService); }, stop: () => unmount(), flush: () => flushWorkbenchDrafts(currentService) };

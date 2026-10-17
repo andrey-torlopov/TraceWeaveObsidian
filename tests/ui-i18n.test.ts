@@ -49,7 +49,7 @@ async function fixture(context: TestContext) {
     resolveVaultLink: async () => null, openVaultLink: unsupported, importFiles: unsupported, cancelImport: () => { throw new Error('Unexpected import cancellation.'); },
     discoverResources: async () => [], registerResource: unsupported, resourceUrl: assetId => `app://local/${assetId}`, showAsset: unsupported,
     verifyAssets: async () => [{ assetId: id(41), status: 'ok' }], search: async query => state.project!.nodes.filter(node => node.title.toLowerCase().includes(query.toLowerCase())).map(node => ({ nodeId: node.id, field: 'title', snippet: node.title })), createReport: unsupported, openReport: unsupported,
-    exportProject: unsupported, exportTraceWeave: unsupported, importArchive: unsupported, undo: unsupported, redo: unsupported, recover: unsupported,
+    exportReadableReport: unsupported, exportProject: unsupported, exportTraceWeave: unsupported, importArchive: unsupported, undo: unsupported, redo: unsupported, recover: unsupported,
     loadDrafts: async () => ({ ...drafts }), saveDraft: async (key, value) => { if (value === null) delete drafts[key]; else drafts[key] = value; },
     loadView: async () => view, saveView: async value => { view = value; },
   };

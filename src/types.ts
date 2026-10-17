@@ -14,6 +14,7 @@ export interface Asset { id: ID; blobId: ID; originalName: string; title: string
 export interface Attachment { id: ID; nodeId: ID; assetId: ID; role: 'primary' | 'attachment'; sortOrder: number; caption: string | null }
 export interface DeletionBatch { id: ID; nodeIds: ID[]; relationIds: ID[]; memberships: Membership[]; createdAt: string }
 export interface SnapshotRecord { id: ID; title: string; path: string; sourceRevision: number; createdAt: string; assetIds: ID[] }
+export interface ReadableReportResult { directory: string; summaryPath: string; canvasPath: string }
 export interface Receipt { hash: string; revision: number; timestamp: string }
 export interface Project { format: 'traceweave.obsidian-project'; formatVersion: '1.0'; requiredFeatures: string[]; id: ID; title: string; descriptionMarkdown: string; status: 'active' | 'archived'; revision: number; createdAt: string; updatedAt: string; nodes: ProjectNode[]; nodeTypes: NodeType[]; relations: Relation[]; relationTypes: { code: string; name: string; defaultDirected: boolean }[]; memberships: Membership[]; blobs: BlobRecord[]; assets: Asset[]; attachments: Attachment[]; deletionBatches: DeletionBatch[]; snapshots: SnapshotRecord[]; receipts: Record<ID, Receipt>; importedData: Record<string, unknown> }
 export type NodeChanges = Partial<Pick<ProjectNode, 'title' | 'typeId' | 'iconEmoji' | 'assessment' | 'confidence' | 'attributes' | 'evidence' | 'notePath' | 'noteHash' | 'missing' | 'subtitle' | 'tags' | 'extensions'>>;
@@ -54,6 +55,7 @@ export interface WorkbenchService {
  resourceUrl(assetId: ID): string; showAsset(assetId: ID): Promise<void>; verifyAssets(): Promise<{ assetId: ID; status: 'ok' | 'missing' | 'changed' }[]>;
  search(query: string, caseSensitive?: boolean): Promise<SearchHit[]>;
  createReport(title: string, nodeIds?: ID[]): Promise<SnapshotRecord>;
+ exportReadableReport(): Promise<ReadableReportResult>;
  openReport(id: ID): Promise<void>; exportProject(): Promise<string>; exportTraceWeave(): Promise<string>; importArchive(file: File): Promise<void>;
  undo(): Promise<void>; redo(): Promise<void>; recover(): Promise<void>;
  loadDrafts(projectId?: ID): Promise<Record<string, unknown>>; saveDraft(key: string, value: unknown): Promise<void>;

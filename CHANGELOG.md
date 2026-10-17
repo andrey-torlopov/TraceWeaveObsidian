@@ -2,6 +2,15 @@
 
 Plugin versions and portable archive format versions are independent.
 
+## 0.1.6 — Readable vault reports — unreleased
+
+- Export the entire active research into a visible vault folder containing `summary.md`, `scheme.canvas` and categorized copies under `Attachments/`.
+- Configure the reports folder in plugin settings; an empty path uses the vault root. Repeated exports create numbered folders without overwriting earlier reports.
+- Combine notes in creation order with creation/update dates, attributes, relationships, evidence and attachment links; original notes remain unchanged.
+- Preserve graph positions and labeled, directed connections in native Obsidian Canvas, with links into the report.
+- Rewrite local note/file links for the exported copy, preserve code, disable remote image embeds, and verify copied originals before publishing a complete folder.
+- Read exported reports on mobile without TraceWeave after syncing the report folder and its files. The plugin itself remains desktop-only.
+
 ## 0.1.5 — Community review fixes — 2026-10-17
 
 - Replace runtime schema compilation with build-time standalone validators, preserving archive and recovery validation.

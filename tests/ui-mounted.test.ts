@@ -65,6 +65,12 @@ test('mounted React Flow survives selection, metadata editing, host updates and 
     await act(async () => { await window.happyDOM.waitUntilComplete(); });
     assert.equal(document.querySelectorAll('.tw-graph-card').length, 2);
     assertAllInView();
+    const reportRevision = harness().state().project!.revision;
+    await act(async () => { button('Экспорт отчёта').click(); });
+    assert.deepEqual(harness().readableReports, [harness().state().project!.id]);
+    assert.equal(harness().state().project!.revision, reportRevision);
+    assert.ok(document.body.textContent!.includes('Отчёт сохранён: UI smoke/summary.md'));
+    await act(async () => { button('Скрыть сообщение').click(); });
     const originalPositions = harness().state().project!.nodes.map(({ id, x, y }) => ({ id, x, y }));
     const originalRevision = harness().state().project!.revision;
     await act(async () => { button('Читать').click(); });
