@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:traceweave:obsidian-journal:1.0",
+  "title": "TraceWeave Obsidian Journal 1.0",
+  "description": "Closed write-ahead journal under _TraceWeave/projects/<projectId>/journal/<operationId>.json. Runtime checks canonical state/history hashes, matching identities and revisions, effect note bindings and hashes, UTF-8 byte budgets, baseline conflicts and completed recovery before further mutation.",
+  "type": "object",
+  "properties": {
+    "formatVersion": {
+      "const": 1
+    },
+    "projectId": {
+      "$ref": "urn:traceweave:obsidian-project:1.0#/$defs/id"
+    },
+    "operationId": {
+      "$ref": "urn:traceweave:obsidian-project:1.0#/$defs/id"
+    },
+    "beforeHash": {
+      "$ref": "urn:traceweave:obsidian-project:1.0#/$defs/hash"
+    },
+    "afterHash": {
+      "$ref": "urn:traceweave:obsidian-project:1.0#/$defs/hash"
+    },
+    "state": {
+      "$ref": "urn:traceweave:obsidian-project:1.0"
+    },
+    "effects": {
+      "type": "array",
+      "maxItems": 1000,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/textEffect"
+      }
+    },
+    "history": {
+      "$ref": "urn:traceweave:obsidian-history:1.0"
+    },
+    "completed": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "formatVersion",
+    "projectId",
+    "operationId",
+    "beforeHash",
+    "afterHash",
+    "state",
+    "effects",
+    "history",
+    "completed"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "textEffect": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "$ref": "urn:traceweave:obsidian-project:1.0#/$defs/notePath"
+        },
+        "before": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 5242880
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "after": {
+          "type": "string",
+          "maxLength": 5242880
+        }
+      },
+      "required": [
+        "path",
+        "before",
+        "after"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

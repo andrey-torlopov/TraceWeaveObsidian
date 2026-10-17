@@ -1,0 +1,15 @@
+{
+  "format": "research-graph.archive",
+  "defaultWriter": "2.0",
+  "schemas": {
+    "legacy-1.0-initial.schema.json": {
+      "sha256": "3e2a15f703d4aa0af4ecd660a4c92106450e45bad5f29dbdbdbe0fda0a8f1bdd"
+    },
+    "legacy-1.0-019.schema.json": {
+      "sha256": "f78b67dd782dbfa5afab70e0f0bf90b3e20f831c62bdfc68ca127e8c5679c6c0"
+    },
+    "2.0.schema.json": {
+      "sha256": "2f003d91477f8513e3f183350037c55a4ffd0cd3d6d43c6358c6acf115583068"
+    }
+  }
+}

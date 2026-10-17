@@ -1,0 +1,3446 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://traceweave.local/contracts/archive-v1.schema.json",
+  "title": "TraceWeave portable archive v1 members",
+  "description": "Validate manifest.json against Manifest and project.json against Project. Archive path, hash, identity and cross-object rules are mandatory in addition to this structural schema. No network refs.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/Manifest"
+    },
+    {
+      "$ref": "#/$defs/Project"
+    }
+  ],
+  "$defs": {
+    "Asset": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "investigationId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "blobId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "originalName": {
+          "type": "string",
+          "pattern": "^[^\\r\\n\\x00]+$",
+          "maxLength": 255,
+          "minLength": 1,
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "mimeType": {
+          "type": "string",
+          "enum": [
+            "text/plain",
+            "text/markdown",
+            "image/jpeg",
+            "image/png",
+            "image/webp",
+            "image/gif",
+            "audio/mpeg",
+            "audio/wav",
+            "audio/ogg",
+            "audio/mp4",
+            "video/mp4",
+            "video/webm",
+            "video/quicktime",
+            "application/pdf",
+            "application/octet-stream"
+          ],
+          "pattern": "^[^\\u0000]*$"
+        },
+        "mediaKind": {
+          "type": "string",
+          "enum": [
+            "text",
+            "image",
+            "audio",
+            "video",
+            "file"
+          ],
+          "pattern": "^[^\\u0000]*$"
+        },
+        "byteSize": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 536870912
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "maxLength": 64,
+          "minLength": 64,
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{1,6})?Z$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "deletedAt": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{1,6})?Z$",
+              "allOf": [
+                {
+                  "pattern": "^[^\\u0000]*$"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "deletionBatchId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "allOf": [
+                {
+                  "pattern": "^[^\\u0000]*$"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        },
+        "title": {
+          "type": "string",
+          "x-normalize": "NFC+trim",
+          "maxLength": 200,
+          "minLength": 1,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "sourceUrl": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uri",
+              "pattern": "^https?://[^\\s]+$",
+              "maxLength": 4096,
+              "minLength": 1,
+              "allOf": [
+                {
+                  "pattern": "^[^\\u0000]*$"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sourceAuthor": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 500,
+              "pattern": "^[^\\u0000]*$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sourceCreatedAt": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^[^\\u0000]*$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "noteMarkdown": {
+          "type": "string",
+          "x-maxUtf8Bytes": 65536,
+          "maxLength": 65536,
+          "pattern": "^[^\\u0000]*$"
+        }
+      },
+      "required": [
+        "id",
+        "investigationId",
+        "blobId",
+        "originalName",
+        "mimeType",
+        "mediaKind",
+        "byteSize",
+        "sha256",
+        "createdAt",
+        "deletedAt",
+        "deletionBatchId",
+        "origin",
+        "title",
+        "sourceUrl",
+        "sourceAuthor",
+        "sourceCreatedAt",
+        "noteMarkdown"
+      ],
+      "additionalProperties": false
+    },
+    "Attribute": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/AttributeText"
+        },
+        {
+          "$ref": "#/$defs/AttributeNumber"
+        },
+        {
+          "$ref": "#/$defs/AttributeBoolean"
+        },
+        {
+          "$ref": "#/$defs/AttributeDate"
+        },
+        {
+          "$ref": "#/$defs/AttributeDatetime"
+        },
+        {
+          "$ref": "#/$defs/AttributeUrl"
+        },
+        {
+          "$ref": "#/$defs/AttributeGeo"
+        }
+      ]
+    },
+    "AttributeBoolean": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "nodeId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "key": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "normalizedKey": {
+          "type": "string",
+          "maxLength": 240,
+          "minLength": 1,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "valueType": {
+          "const": "boolean"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sortOrder": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        }
+      },
+      "required": [
+        "id",
+        "nodeId",
+        "key",
+        "normalizedKey",
+        "valueType",
+        "value",
+        "sortOrder"
+      ],
+      "additionalProperties": false
+    },
+    "AttributeDate": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "nodeId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "key": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "normalizedKey": {
+          "type": "string",
+          "maxLength": 240,
+          "minLength": 1,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "valueType": {
+          "const": "date"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CalendarDate"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sortOrder": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        }
+      },
+      "required": [
+        "id",
+        "nodeId",
+        "key",
+        "normalizedKey",
+        "valueType",
+        "value",
+        "sortOrder"
+      ],
+      "additionalProperties": false
+    },
+    "AttributeDatetime": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "nodeId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "key": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "normalizedKey": {
+          "type": "string",
+          "maxLength": 240,
+          "minLength": 1,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "valueType": {
+          "const": "datetime"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^[^\\u0000]*$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sortOrder": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        }
+      },
+      "required": [
+        "id",
+        "nodeId",
+        "key",
+        "normalizedKey",
+        "valueType",
+        "value",
+        "sortOrder"
+      ],
+      "additionalProperties": false
+    },
+    "AttributeGeo": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "nodeId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "key": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "normalizedKey": {
+          "type": "string",
+          "maxLength": 240,
+          "minLength": 1,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "valueType": {
+          "const": "geo"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GeoValue"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sortOrder": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        }
+      },
+      "required": [
+        "id",
+        "nodeId",
+        "key",
+        "normalizedKey",
+        "valueType",
+        "value",
+        "sortOrder"
+      ],
+      "additionalProperties": false
+    },
+    "AttributeNumber": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "nodeId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "key": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "normalizedKey": {
+          "type": "string",
+          "maxLength": 240,
+          "minLength": 1,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "valueType": {
+          "const": "number"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sortOrder": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        }
+      },
+      "required": [
+        "id",
+        "nodeId",
+        "key",
+        "normalizedKey",
+        "valueType",
+        "value",
+        "sortOrder"
+      ],
+      "additionalProperties": false
+    },
+    "AttributeTemplate": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/AttributeTemplateText"
+        },
+        {
+          "$ref": "#/$defs/AttributeTemplateNumber"
+        },
+        {
+          "$ref": "#/$defs/AttributeTemplateBoolean"
+        },
+        {
+          "$ref": "#/$defs/AttributeTemplateDate"
+        },
+        {
+          "$ref": "#/$defs/AttributeTemplateDatetime"
+        },
+        {
+          "$ref": "#/$defs/AttributeTemplateUrl"
+        },
+        {
+          "$ref": "#/$defs/AttributeTemplateGeo"
+        }
+      ]
+    },
+    "AttributeTemplateBoolean": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "valueType": {
+          "const": "boolean"
+        },
+        "initialValue": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "key",
+        "name",
+        "valueType",
+        "initialValue"
+      ],
+      "additionalProperties": false
+    },
+    "AttributeTemplateDate": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "valueType": {
+          "const": "date"
+        },
+        "initialValue": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CalendarDate"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "key",
+        "name",
+        "valueType",
+        "initialValue"
+      ],
+      "additionalProperties": false
+    },
+    "AttributeTemplateDatetime": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "valueType": {
+          "const": "datetime"
+        },
+        "initialValue": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^[^\\u0000]*$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "key",
+        "name",
+        "valueType",
+        "initialValue"
+      ],
+      "additionalProperties": false
+    },
+    "AttributeTemplateGeo": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "valueType": {
+          "const": "geo"
+        },
+        "initialValue": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GeoValue"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "key",
+        "name",
+        "valueType",
+        "initialValue"
+      ],
+      "additionalProperties": false
+    },
+    "AttributeTemplateNumber": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "valueType": {
+          "const": "number"
+        },
+        "initialValue": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "key",
+        "name",
+        "valueType",
+        "initialValue"
+      ],
+      "additionalProperties": false
+    },
+    "AttributeTemplateText": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "valueType": {
+          "const": "text"
+        },
+        "initialValue": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 10000,
+              "pattern": "^[^\\u0000]*$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "key",
+        "name",
+        "valueType",
+        "initialValue"
+      ],
+      "additionalProperties": false
+    },
+    "AttributeTemplateUrl": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "valueType": {
+          "const": "url"
+        },
+        "initialValue": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uri",
+              "pattern": "^https?://[^\\s]+$",
+              "maxLength": 4096,
+              "minLength": 1,
+              "allOf": [
+                {
+                  "pattern": "^[^\\u0000]*$"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "key",
+        "name",
+        "valueType",
+        "initialValue"
+      ],
+      "additionalProperties": false
+    },
+    "AttributeText": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "nodeId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "key": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "normalizedKey": {
+          "type": "string",
+          "maxLength": 240,
+          "minLength": 1,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "valueType": {
+          "const": "text"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 10000,
+              "pattern": "^[^\\u0000]*$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sortOrder": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        }
+      },
+      "required": [
+        "id",
+        "nodeId",
+        "key",
+        "normalizedKey",
+        "valueType",
+        "value",
+        "sortOrder"
+      ],
+      "additionalProperties": false
+    },
+    "AttributeUrl": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "nodeId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "key": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "normalizedKey": {
+          "type": "string",
+          "maxLength": 240,
+          "minLength": 1,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "valueType": {
+          "const": "url"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uri",
+              "pattern": "^https?://[^\\s]+$",
+              "maxLength": 4096,
+              "minLength": 1,
+              "allOf": [
+                {
+                  "pattern": "^[^\\u0000]*$"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sortOrder": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        }
+      },
+      "required": [
+        "id",
+        "nodeId",
+        "key",
+        "normalizedKey",
+        "valueType",
+        "value",
+        "sortOrder"
+      ],
+      "additionalProperties": false
+    },
+    "CalendarDate": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "string",
+              "pattern": "^\\d{4}$",
+              "allOf": [
+                {
+                  "pattern": "^[^\\u0000]*$"
+                }
+              ]
+            },
+            "precision": {
+              "const": "year"
+            }
+          },
+          "required": [
+            "value",
+            "precision"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "string",
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "allOf": [
+                {
+                  "pattern": "^[^\\u0000]*$"
+                }
+              ]
+            },
+            "precision": {
+              "const": "month"
+            }
+          },
+          "required": [
+            "value",
+            "precision"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "string",
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$",
+              "allOf": [
+                {
+                  "pattern": "^[^\\u0000]*$"
+                }
+              ]
+            },
+            "precision": {
+              "const": "day"
+            }
+          },
+          "required": [
+            "value",
+            "precision"
+          ],
+          "additionalProperties": false
+        }
+      ],
+      "x-realCalendarDate": true
+    },
+    "DeletionBatch": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "investigationId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{1,6})?Z$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "nodeIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "allOf": [
+              {
+                "pattern": "^[^\\u0000]*$"
+              }
+            ]
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "relationIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "allOf": [
+              {
+                "pattern": "^[^\\u0000]*$"
+              }
+            ]
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "assetIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "allOf": [
+              {
+                "pattern": "^[^\\u0000]*$"
+              }
+            ]
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "previousMemberships": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GroupMembership"
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "id",
+        "investigationId",
+        "createdAt",
+        "nodeIds",
+        "relationIds",
+        "assetIds",
+        "previousMemberships"
+      ],
+      "additionalProperties": false
+    },
+    "EvidenceAsset": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "investigationId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "subjectKind": {
+          "type": "string",
+          "enum": [
+            "node",
+            "relation"
+          ],
+          "pattern": "^[^\\u0000]*$"
+        },
+        "subjectId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 500,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "quote": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 10000,
+              "pattern": "^[^\\u0000]*$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "locator": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 10000,
+              "pattern": "^[^\\u0000]*$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "accessedAt": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{1,6})?Z$",
+              "allOf": [
+                {
+                  "pattern": "^[^\\u0000]*$"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 10000,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "sourceKind": {
+          "const": "asset"
+        },
+        "sourceNodeId": {
+          "type": "null"
+        },
+        "assetId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "url": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "id",
+        "investigationId",
+        "subjectKind",
+        "subjectId",
+        "label",
+        "quote",
+        "locator",
+        "accessedAt",
+        "note",
+        "sourceKind",
+        "sourceNodeId",
+        "assetId",
+        "url"
+      ],
+      "additionalProperties": false
+    },
+    "EvidenceNode": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "investigationId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "subjectKind": {
+          "type": "string",
+          "enum": [
+            "node",
+            "relation"
+          ],
+          "pattern": "^[^\\u0000]*$"
+        },
+        "subjectId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 500,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "quote": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 10000,
+              "pattern": "^[^\\u0000]*$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "locator": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 10000,
+              "pattern": "^[^\\u0000]*$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "accessedAt": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{1,6})?Z$",
+              "allOf": [
+                {
+                  "pattern": "^[^\\u0000]*$"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 10000,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "sourceKind": {
+          "const": "node"
+        },
+        "sourceNodeId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "assetId": {
+          "type": "null"
+        },
+        "url": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "id",
+        "investigationId",
+        "subjectKind",
+        "subjectId",
+        "label",
+        "quote",
+        "locator",
+        "accessedAt",
+        "note",
+        "sourceKind",
+        "sourceNodeId",
+        "assetId",
+        "url"
+      ],
+      "additionalProperties": false
+    },
+    "EvidenceReference": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/EvidenceNode"
+        },
+        {
+          "$ref": "#/$defs/EvidenceAsset"
+        },
+        {
+          "$ref": "#/$defs/EvidenceUrl"
+        }
+      ]
+    },
+    "EvidenceUrl": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "investigationId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "subjectKind": {
+          "type": "string",
+          "enum": [
+            "node",
+            "relation"
+          ],
+          "pattern": "^[^\\u0000]*$"
+        },
+        "subjectId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 500,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "quote": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 10000,
+              "pattern": "^[^\\u0000]*$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "locator": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 10000,
+              "pattern": "^[^\\u0000]*$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "accessedAt": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{1,6})?Z$",
+              "allOf": [
+                {
+                  "pattern": "^[^\\u0000]*$"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 10000,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "sourceKind": {
+          "const": "url"
+        },
+        "sourceNodeId": {
+          "type": "null"
+        },
+        "assetId": {
+          "type": "null"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https?://[^\\s]+$",
+          "maxLength": 4096,
+          "minLength": 1,
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "investigationId",
+        "subjectKind",
+        "subjectId",
+        "label",
+        "quote",
+        "locator",
+        "accessedAt",
+        "note",
+        "sourceKind",
+        "sourceNodeId",
+        "assetId",
+        "url"
+      ],
+      "additionalProperties": false
+    },
+    "ExtensionValue": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        {
+          "type": "string",
+          "pattern": "^[^\\u0000]*$"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ExtensionValue"
+          },
+          "minItems": 0
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtensionValue"
+          },
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[^\\u0000]*$"
+          }
+        }
+      ]
+    },
+    "Extensions": {
+      "type": "object",
+      "patternProperties": {
+        "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)+$": {
+          "$ref": "#/$defs/ExtensionValue"
+        }
+      },
+      "additionalProperties": false,
+      "x-maxJsonUtf8Bytes": 16384,
+      "description": "Namespaced inert metadata; never executable, fetched or interpreted as permissions."
+    },
+    "GeoValue": {
+      "type": "object",
+      "properties": {
+        "latitude": {
+          "type": "number",
+          "minimum": -90,
+          "maximum": 90
+        },
+        "longitude": {
+          "type": "number",
+          "minimum": -180,
+          "maximum": 180
+        },
+        "accuracyMeters": {
+          "anyOf": [
+            {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "latitude",
+        "longitude",
+        "accuracyMeters"
+      ],
+      "additionalProperties": false
+    },
+    "GroupMembership": {
+      "type": "object",
+      "properties": {
+        "investigationId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "groupNodeId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "memberNodeId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "sortOrder": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        }
+      },
+      "required": [
+        "investigationId",
+        "groupNodeId",
+        "memberNodeId",
+        "sortOrder"
+      ],
+      "additionalProperties": false
+    },
+    "ImportOrigin": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "import"
+        },
+        "importId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "sourceInvestigationId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "sourceObjectId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "importedAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{1,6})?Z$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "importId",
+        "sourceInvestigationId",
+        "sourceObjectId",
+        "importedAt"
+      ],
+      "additionalProperties": false
+    },
+    "ManualOrigin": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "manual"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "Node": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "investigationId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "typeId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "title": {
+          "type": "string",
+          "x-normalize": "NFC+trim",
+          "maxLength": 200,
+          "minLength": 1,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "subtitle": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 500,
+              "pattern": "^[^\\u0000]*$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "bodyMarkdown": {
+          "type": "string",
+          "x-maxUtf8Bytes": 5242880,
+          "maxLength": 5242880,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "assessment": {
+          "type": "string",
+          "enum": [
+            "unreviewed",
+            "confirmed_by_user",
+            "hypothesis",
+            "refuted_by_user"
+          ],
+          "pattern": "^[^\\u0000]*$"
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "low",
+                "medium",
+                "high"
+              ],
+              "pattern": "^[^\\u0000]*$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "x-normalize": "NFC+trim",
+            "maxLength": 50,
+            "minLength": 1,
+            "pattern": "^[^\\u0000]*$"
+          },
+          "minItems": 0,
+          "maxItems": 50,
+          "uniqueItems": true,
+          "x-uniqueNormalized": true
+        },
+        "extensions": {
+          "$ref": "#/$defs/Extensions"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{1,6})?Z$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{1,6})?Z$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "deletedAt": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{1,6})?Z$",
+              "allOf": [
+                {
+                  "pattern": "^[^\\u0000]*$"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "deletionBatchId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "allOf": [
+                {
+                  "pattern": "^[^\\u0000]*$"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "id",
+        "investigationId",
+        "typeId",
+        "title",
+        "subtitle",
+        "bodyMarkdown",
+        "assessment",
+        "confidence",
+        "tags",
+        "extensions",
+        "createdAt",
+        "updatedAt",
+        "deletedAt",
+        "deletionBatchId",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "NodeAttachment": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "investigationId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "nodeId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "assetId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "primary",
+            "attachment"
+          ],
+          "pattern": "^[^\\u0000]*$"
+        },
+        "caption": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 10000,
+              "pattern": "^[^\\u0000]*$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sortOrder": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        }
+      },
+      "required": [
+        "id",
+        "investigationId",
+        "nodeId",
+        "assetId",
+        "role",
+        "caption",
+        "sortOrder"
+      ],
+      "additionalProperties": false
+    },
+    "NodeLayout": {
+      "type": "object",
+      "properties": {
+        "nodeId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "investigationId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "x": {
+          "type": "number",
+          "minimum": -1000000,
+          "maximum": 1000000
+        },
+        "y": {
+          "type": "number",
+          "minimum": -1000000,
+          "maximum": 1000000
+        },
+        "zIndex": {
+          "type": "integer",
+          "minimum": -1000000,
+          "maximum": 1000000
+        }
+      },
+      "required": [
+        "nodeId",
+        "investigationId",
+        "x",
+        "y",
+        "zIndex"
+      ],
+      "additionalProperties": false
+    },
+    "NodeType": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "investigationId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "code": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]{0,63}$",
+          "maxLength": 64,
+          "minLength": 1,
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "iconKey": {
+          "type": "string",
+          "enum": [
+            "user",
+            "building",
+            "phone",
+            "mail",
+            "globe",
+            "link",
+            "map-pin",
+            "calendar",
+            "file-text",
+            "image",
+            "music",
+            "video",
+            "check-circle",
+            "folder",
+            "tag",
+            "circle",
+            "book",
+            "briefcase",
+            "database",
+            "flag",
+            "hash",
+            "search",
+            "shield",
+            "star"
+          ],
+          "pattern": "^[^\\u0000]*$"
+        },
+        "color": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "isSystem": {
+          "type": "boolean"
+        },
+        "isHidden": {
+          "type": "boolean"
+        },
+        "attributeTemplates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AttributeTemplate"
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "id",
+        "investigationId",
+        "code",
+        "name",
+        "iconKey",
+        "color",
+        "isSystem",
+        "isHidden",
+        "attributeTemplates"
+      ],
+      "additionalProperties": false
+    },
+    "Origin": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/ManualOrigin"
+        },
+        {
+          "$ref": "#/$defs/ImportOrigin"
+        },
+        {
+          "$ref": "#/$defs/PluginOrigin"
+        }
+      ],
+      "description": "Plugin execution deferred; provenance retained for compatible historical imports."
+    },
+    "PluginOrigin": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "plugin"
+        },
+        "pluginId": {
+          "type": "string",
+          "maxLength": 200,
+          "minLength": 1,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "pluginVersion": {
+          "type": "string",
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "jobId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{1,6})?Z$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "sourceNodeIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "allOf": [
+              {
+                "pattern": "^[^\\u0000]*$"
+              }
+            ]
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "inputSha256": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "maxLength": 64,
+            "minLength": 64,
+            "allOf": [
+              {
+                "pattern": "^[^\\u0000]*$"
+              }
+            ]
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "kind",
+        "pluginId",
+        "pluginVersion",
+        "jobId",
+        "createdAt",
+        "sourceNodeIds",
+        "inputSha256"
+      ],
+      "additionalProperties": false
+    },
+    "Relation": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "investigationId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "sourceNodeId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "targetNodeId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "relationType": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]{0,63}$",
+          "maxLength": 64,
+          "minLength": 1,
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "directed": {
+          "type": "boolean"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 200,
+              "pattern": "^[^\\u0000]*$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "noteMarkdown": {
+          "type": "string",
+          "x-maxUtf8Bytes": 65536,
+          "maxLength": 65536,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "assessment": {
+          "type": "string",
+          "enum": [
+            "unreviewed",
+            "confirmed_by_user",
+            "hypothesis",
+            "refuted_by_user"
+          ],
+          "pattern": "^[^\\u0000]*$"
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "low",
+                "medium",
+                "high"
+              ],
+              "pattern": "^[^\\u0000]*$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{1,6})?Z$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{1,6})?Z$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "deletedAt": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{1,6})?Z$",
+              "allOf": [
+                {
+                  "pattern": "^[^\\u0000]*$"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "deletionBatchId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "allOf": [
+                {
+                  "pattern": "^[^\\u0000]*$"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        },
+        "bidirectional": {
+          "type": "boolean",
+          "description": "True for arrows at both ends; requires directed=true. Missing in legacy data means false."
+        }
+      },
+      "required": [
+        "id",
+        "investigationId",
+        "sourceNodeId",
+        "targetNodeId",
+        "relationType",
+        "directed",
+        "label",
+        "noteMarkdown",
+        "assessment",
+        "confidence",
+        "createdAt",
+        "updatedAt",
+        "deletedAt",
+        "deletionBatchId",
+        "origin"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "bidirectional": {
+                "const": true
+              }
+            },
+            "required": [
+              "bidirectional"
+            ]
+          },
+          "then": {
+            "properties": {
+              "directed": {
+                "const": true
+              }
+            }
+          }
+        }
+      ]
+    },
+    "RelationType": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "investigationId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "code": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]{0,63}$",
+          "maxLength": 64,
+          "minLength": 1,
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 80,
+          "minLength": 1,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "defaultDirected": {
+          "type": "boolean"
+        },
+        "isHidden": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "investigationId",
+        "code",
+        "name",
+        "defaultDirected",
+        "isHidden"
+      ],
+      "additionalProperties": false
+    },
+    "ReportDefinition": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "investigationId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "title": {
+          "type": "string",
+          "x-normalize": "NFC+trim",
+          "maxLength": 200,
+          "minLength": 1,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "introductionMarkdown": {
+          "type": "string",
+          "x-maxUtf8Bytes": 1048576,
+          "maxLength": 1048576,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "scopeMode": {
+          "type": "string",
+          "enum": [
+            "all",
+            "selection"
+          ],
+          "pattern": "^[^\\u0000]*$"
+        },
+        "selectedNodeIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "allOf": [
+              {
+                "pattern": "^[^\\u0000]*$"
+              }
+            ]
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "orderedConclusionIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "allOf": [
+              {
+                "pattern": "^[^\\u0000]*$"
+              }
+            ]
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "includeGroupMembers": {
+          "type": "boolean"
+        },
+        "includeAttachments": {
+          "type": "boolean"
+        },
+        "includeEvidence": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{1,6})?Z$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{1,6})?Z$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "investigationId",
+        "title",
+        "introductionMarkdown",
+        "scopeMode",
+        "selectedNodeIds",
+        "orderedConclusionIds",
+        "includeGroupMembers",
+        "includeAttachments",
+        "includeEvidence",
+        "createdAt",
+        "updatedAt"
+      ],
+      "additionalProperties": false
+    },
+    "ReportSnapshot": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "reportDefinitionId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "investigationId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "sourceRevision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{1,6})?Z$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "formatVersion": {
+          "const": "1.0"
+        },
+        "importProvenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SnapshotProvenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "content": {
+          "$ref": "#/$defs/SnapshotContent"
+        }
+      },
+      "required": [
+        "id",
+        "reportDefinitionId",
+        "investigationId",
+        "sourceRevision",
+        "createdAt",
+        "formatVersion",
+        "importProvenance",
+        "content"
+      ],
+      "additionalProperties": false
+    },
+    "ReportSnapshotAsset": {
+      "type": "object",
+      "properties": {
+        "investigationId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "snapshotId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "assetId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "blobId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        }
+      },
+      "required": [
+        "investigationId",
+        "snapshotId",
+        "assetId",
+        "blobId"
+      ],
+      "additionalProperties": false
+    },
+    "ReportWarning": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "enum": [
+            "unreviewed",
+            "confirmed_without_evidence",
+            "source_outside_scope",
+            "missing_original",
+            "personal_metadata",
+            "url_may_contain_token"
+          ],
+          "pattern": "^[^\\u0000]*$"
+        },
+        "objectKind": {
+          "type": "string",
+          "enum": [
+            "node",
+            "relation",
+            "asset",
+            "evidence"
+          ],
+          "pattern": "^[^\\u0000]*$"
+        },
+        "objectId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 1000,
+          "minLength": 1,
+          "pattern": "^[^\\u0000]*$"
+        }
+      },
+      "required": [
+        "code",
+        "objectKind",
+        "objectId",
+        "message"
+      ],
+      "additionalProperties": false
+    },
+    "SnapshotContent": {
+      "type": "object",
+      "properties": {
+        "investigationTitle": {
+          "type": "string",
+          "x-normalize": "NFC+trim",
+          "maxLength": 200,
+          "minLength": 1,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "definition": {
+          "$ref": "#/$defs/ReportDefinition"
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Node"
+          },
+          "minItems": 0
+        },
+        "attributes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Attribute"
+          },
+          "minItems": 0
+        },
+        "relations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Relation"
+          },
+          "minItems": 0
+        },
+        "nodeTypes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NodeType"
+          },
+          "minItems": 0
+        },
+        "relationTypes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RelationType"
+          },
+          "minItems": 0
+        },
+        "attachments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NodeAttachment"
+          },
+          "minItems": 0
+        },
+        "assets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Asset"
+          },
+          "minItems": 0
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SnapshotEvidence"
+          },
+          "minItems": 0
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ReportWarning"
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "investigationTitle",
+        "definition",
+        "nodes",
+        "attributes",
+        "relations",
+        "nodeTypes",
+        "relationTypes",
+        "attachments",
+        "assets",
+        "evidence",
+        "warnings"
+      ],
+      "additionalProperties": false
+    },
+    "SnapshotEvidence": {
+      "type": "object",
+      "properties": {
+        "evidence": {
+          "$ref": "#/$defs/EvidenceReference"
+        },
+        "sourceStatus": {
+          "type": "string",
+          "enum": [
+            "included",
+            "outside_scope",
+            "deleted",
+            "unavailable"
+          ],
+          "pattern": "^[^\\u0000]*$"
+        },
+        "sourceTitle": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 500,
+              "pattern": "^[^\\u0000]*$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "evidence",
+        "sourceStatus",
+        "sourceTitle"
+      ],
+      "additionalProperties": false
+    },
+    "SnapshotProvenance": {
+      "type": "object",
+      "properties": {
+        "sourceInvestigationId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "sourceSnapshotId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "sourceRevision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "importedAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{1,6})?Z$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        }
+      },
+      "required": [
+        "sourceInvestigationId",
+        "sourceSnapshotId",
+        "sourceRevision",
+        "importedAt"
+      ],
+      "additionalProperties": false
+    },
+    "ArchiveInvestigation": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "examples": [
+            "30000000-0000-4000-8000-000000000001"
+          ],
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "title": {
+          "type": "string",
+          "x-normalize": "NFC+trim",
+          "maxLength": 200,
+          "minLength": 1,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "descriptionMarkdown": {
+          "type": "string",
+          "x-maxUtf8Bytes": 1048576,
+          "maxLength": 1048576,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "active",
+            "archived"
+          ],
+          "pattern": "^[^\\u0000]*$"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{1,6})?Z$",
+          "examples": [
+            "2026-10-08T12:00:00.000Z"
+          ],
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{1,6})?Z$",
+          "examples": [
+            "2026-10-08T12:00:00.000Z"
+          ],
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "archivedAt": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{1,6})?Z$",
+              "examples": [
+                "2026-10-08T12:00:00.000Z"
+              ],
+              "allOf": [
+                {
+                  "pattern": "^[^\\u0000]*$"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "descriptionMarkdown",
+        "status",
+        "revision",
+        "createdAt",
+        "updatedAt",
+        "archivedAt"
+      ],
+      "additionalProperties": false
+    },
+    "ArchiveBlob": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "examples": [
+            "30000000-0000-4000-8000-000000000001"
+          ],
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "investigationId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "examples": [
+            "30000000-0000-4000-8000-000000000001"
+          ],
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "maxLength": 64,
+          "minLength": 64,
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "byteSize": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 536870912
+        },
+        "path": {
+          "type": "string",
+          "pattern": "^blobs/[a-f0-9]{64}$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "investigationId",
+        "sha256",
+        "byteSize",
+        "path"
+      ],
+      "additionalProperties": false
+    },
+    "ArchiveFile": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^(project\\.json|blobs/[a-f0-9]{64})$",
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "byteSize": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "maxLength": 64,
+          "minLength": 64,
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        }
+      },
+      "required": [
+        "path",
+        "byteSize",
+        "sha256"
+      ],
+      "additionalProperties": false
+    },
+    "Manifest": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "const": "research-graph.archive"
+        },
+        "formatVersion": {
+          "const": "1.0"
+        },
+        "exportedAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{1,6})?Z$",
+          "examples": [
+            "2026-10-08T12:00:00.000Z"
+          ],
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "sourceInvestigationId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "examples": [
+            "30000000-0000-4000-8000-000000000001"
+          ],
+          "allOf": [
+            {
+              "pattern": "^[^\\u0000]*$"
+            }
+          ]
+        },
+        "sourceRevision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "projectPath": {
+          "const": "project.json"
+        },
+        "includesTrash": {
+          "const": true
+        },
+        "includesSnapshots": {
+          "const": true
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ArchiveFile"
+          },
+          "minItems": 1,
+          "maxItems": 50000,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "format",
+        "formatVersion",
+        "exportedAt",
+        "sourceInvestigationId",
+        "sourceRevision",
+        "projectPath",
+        "includesTrash",
+        "includesSnapshots",
+        "files"
+      ],
+      "additionalProperties": false
+    },
+    "Project": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "const": "research-graph.project"
+        },
+        "formatVersion": {
+          "const": "1.0"
+        },
+        "investigation": {
+          "$ref": "#/$defs/ArchiveInvestigation"
+        },
+        "blobs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ArchiveBlob"
+          },
+          "minItems": 0
+        },
+        "nodeTypes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NodeType"
+          },
+          "minItems": 0
+        },
+        "relationTypes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RelationType"
+          },
+          "minItems": 0
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Node"
+          },
+          "minItems": 0
+        },
+        "attributes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Attribute"
+          },
+          "minItems": 0
+        },
+        "layouts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NodeLayout"
+          },
+          "minItems": 0
+        },
+        "memberships": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GroupMembership"
+          },
+          "minItems": 0
+        },
+        "relations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Relation"
+          },
+          "minItems": 0
+        },
+        "assets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Asset"
+          },
+          "minItems": 0
+        },
+        "attachments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NodeAttachment"
+          },
+          "minItems": 0
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvidenceReference"
+          },
+          "minItems": 0
+        },
+        "reports": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ReportDefinition"
+          },
+          "minItems": 0
+        },
+        "snapshots": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ReportSnapshot"
+          },
+          "minItems": 0
+        },
+        "snapshotAssets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ReportSnapshotAsset"
+          },
+          "minItems": 0
+        },
+        "deletionBatches": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DeletionBatch"
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "format",
+        "formatVersion",
+        "investigation",
+        "blobs",
+        "nodeTypes",
+        "relationTypes",
+        "nodes",
+        "attributes",
+        "layouts",
+        "memberships",
+        "relations",
+        "assets",
+        "attachments",
+        "evidence",
+        "reports",
+        "snapshots",
+        "snapshotAssets",
+        "deletionBatches"
+      ],
+      "additionalProperties": false,
+      "x-maxJsonUtf8Bytes": 67108864
+    }
+  }
+}

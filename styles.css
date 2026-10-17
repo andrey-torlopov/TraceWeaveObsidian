@@ -1,0 +1,293 @@
+.tw-obsidian-host { padding: 0; overflow: hidden; }
+.tw-obsidian {
+  --tw-panel: var(--background-primary);
+  --tw-panel-alt: var(--background-secondary);
+  --tw-border: var(--background-modifier-border);
+  --tw-accent: var(--interactive-accent);
+  --tw-text: var(--text-normal);
+  --tw-muted: var(--text-muted);
+  --tw-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 360px;
+  min-width: 280px;
+  overflow: hidden;
+  position: relative;
+  color: var(--tw-text);
+  background: var(--tw-panel);
+  font: var(--font-ui-small) var(--font-interface);
+  line-height: 1.45;
+}
+.tw-obsidian *, .tw-obsidian *::before, .tw-obsidian *::after { box-sizing: border-box; }
+.tw-obsidian button, .tw-obsidian select, .tw-obsidian input, .tw-obsidian textarea { font: inherit; }
+.tw-obsidian button { cursor: pointer; white-space: nowrap; }
+.tw-obsidian button:disabled { cursor: default; opacity: .45; }
+.tw-obsidian button:focus-visible, .tw-obsidian select:focus-visible, .tw-obsidian input:focus-visible, .tw-obsidian textarea:focus-visible, .tw-obsidian a:focus-visible { outline: 2px solid var(--tw-accent); outline-offset: 2px; }
+.tw-obsidian button.mod-cta { background: var(--tw-accent); color: var(--text-on-accent); }
+.tw-obsidian button.tw-danger { color: var(--text-error); }
+.tw-obsidian input, .tw-obsidian select, .tw-obsidian textarea { max-width: 100%; }
+.tw-obsidian h1, .tw-obsidian h2, .tw-obsidian h3, .tw-obsidian p { margin: 0 0 12px; }
+.tw-obsidian h1 { font-size: 25px; line-height: 1.25; letter-spacing: -.035em; }
+.tw-obsidian h2 { font-size: 19px; line-height: 1.3; letter-spacing: -.025em; overflow-wrap: anywhere; }
+.tw-obsidian h3 { font-size: 14px; margin-top: 22px; }
+.tw-obsidian small { font-size: 11px; color: var(--tw-muted); }
+.tw-obsidian .tw-row { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+.tw-obsidian .tw-muted { color: var(--tw-muted); }
+.tw-obsidian .tw-error { color: var(--text-error); white-space: pre-wrap; overflow-wrap: anywhere; }
+.tw-obsidian .tw-header { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; padding: 16px 20px; border-bottom: 1px solid var(--tw-border); }
+.tw-obsidian .tw-brand { display: flex; align-items: center; gap: 10px; }
+.tw-obsidian .tw-brand strong { font-size: 18px; letter-spacing: -.025em; }
+.tw-obsidian .tw-brand small { display: block; font-size: 10px; }
+.tw-obsidian .tw-brand-symbol { display: grid; place-items: center; width: 36px; height: 36px; font-size: 30px; color: var(--tw-accent); background: var(--background-modifier-hover); border-radius: 10px; }
+.tw-obsidian .tw-project-picker { display: flex; gap: 6px; margin-left: auto; max-width: 100%; align-items: center; }
+.tw-obsidian .tw-project-picker select { width: 230px; text-overflow: ellipsis; }
+.tw-obsidian .tw-history { display: flex; gap: 4px; }
+.tw-obsidian .tw-history button { font-size: 22px; padding: 4px 10px; }
+.tw-obsidian .tw-navigation { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 9px 14px; background: var(--tw-panel-alt); border-bottom: 1px solid var(--tw-border); }
+.tw-obsidian .tw-navigation > button { box-shadow: none; background: transparent; font-weight: 600; color: var(--tw-muted); padding: 7px 11px; }
+.tw-obsidian .tw-navigation > button[aria-pressed="true"] { background: var(--tw-panel); color: var(--tw-text); box-shadow: 0 1px 4px #00000010; }
+.tw-obsidian .tw-navigation > button span { margin-left: 6px; font-size: 10px; font-weight: 400; color: var(--tw-muted); }
+.tw-obsidian .tw-nav-actions { display: flex; flex-wrap: wrap; gap: 5px; margin-left: auto; }
+.tw-obsidian .tw-nav-actions button { font-size: 11px; }
+.tw-obsidian .tw-toolbar { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 14px; border-bottom: 1px solid var(--tw-border); }
+.tw-obsidian .tw-toolbar > select { flex: 0 1 135px; min-width: 90px; }
+.tw-obsidian .tw-search { flex: 1 1 220px; min-width: 170px; display: flex; gap: 4px; align-items: center; }
+.tw-obsidian .tw-search > span { color: var(--tw-muted); font-size: 22px; }
+.tw-obsidian .tw-search input { flex: 1; min-width: 0; }
+.tw-obsidian .tw-toolbar button { font-size: 11px; }
+.tw-obsidian .tw-banner { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 16px; background: var(--background-modifier-hover); border-bottom: 1px solid var(--tw-border); overflow-wrap: anywhere; }
+.tw-obsidian .tw-banner.tw-error { background: color-mix(in srgb, var(--text-error) 9%, var(--tw-panel)); }
+.tw-obsidian .tw-banner button { flex-shrink: 0; }
+.tw-obsidian .tw-progress { padding: 10px 16px; display: flex; gap: 12px; align-items: center; border-bottom: 1px solid var(--tw-border); }
+.tw-obsidian .tw-progress progress { flex: 1; min-width: 50px; accent-color: var(--tw-accent); }
+.tw-obsidian .tw-workspace { display: grid; flex: 1; min-height: 0; grid-template-columns: minmax(0, 1fr); overflow: hidden; }
+.tw-obsidian .tw-workspace.with-inspector { grid-template-columns: minmax(240px, 1fr) minmax(280px, 34%); }
+.tw-obsidian .tw-graph { position: relative; min-height: 260px; background: var(--tw-panel-alt); }
+.tw-obsidian .tw-graph-legend { position: absolute; z-index: 5; bottom: 12px; left: 55px; display: flex; gap: 10px; align-items: center; font-size: 10px; color: var(--tw-muted); pointer-events: none; }
+.tw-obsidian .tw-graph-legend button { pointer-events: auto; font-size: 10px; }
+.tw-obsidian .tw-selection-bar { padding: 7px 15px; background: color-mix(in srgb, var(--tw-accent) 12%, var(--tw-panel)); display: flex; align-items: center; gap: 8px; }
+.tw-obsidian .tw-graph-card { width: 245px; min-height: 112px; border: 1px solid var(--tw-border); border-top: 3px solid var(--tw-accent); border-radius: var(--tw-radius); padding: 12px; background: var(--tw-panel); box-shadow: 0 3px 12px #00000012; color: var(--tw-text); }
+.tw-obsidian .tw-graph-card.is-selected { box-shadow: 0 0 0 2px var(--tw-accent), 0 5px 16px #00000016; }
+.tw-obsidian .tw-graph-card.is-missing { border-style: dashed; }
+.tw-obsidian .tw-graph-card.is-expanded { width: 365px; }
+.tw-obsidian .tw-graph-card:not(.is-expanded):not(.is-circle) { height: 112px; }
+.tw-obsidian .tw-graph-card.is-expanded { height: 448px; display: flex; flex-direction: column; }
+.tw-obsidian .tw-graph-card.is-expanded > .tw-card-heading, .tw-obsidian .tw-graph-card.is-expanded > .tw-row { flex-shrink: 0; }
+.tw-obsidian .tw-graph-card.is-expanded > .tw-card-body { flex: 1; min-height: 0; max-height: none; }
+.tw-obsidian .tw-graph-card.is-circle { display: grid; place-items: center; width: 64px; height: 64px; min-height: 64px; padding: 0; border-width: 2px; border-radius: 50%; position: relative; }
+.tw-obsidian .tw-graph-card.is-circle > .tw-node-glyph { font-size: 29px; width: auto; }
+.tw-obsidian .tw-graph-card.is-circle .tw-circle-members { position: absolute; right: -6px; bottom: -5px; width: 23px; height: 23px; min-height: 23px; padding: 0; border: 1px solid var(--tw-border); border-radius: 50%; background: var(--tw-panel); font-size: 10px; line-height: 1; }
+.tw-obsidian .tw-card-heading { display: flex; align-items: center; gap: 9px; margin-bottom: 8px; }
+.tw-obsidian .tw-card-heading > div { min-width: 0; }
+.tw-obsidian .tw-card-heading strong { font-size: 13px; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; word-break: break-word; }
+.tw-obsidian .tw-card-heading > div > span { display: block; font-size: 9px; color: var(--tw-muted); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tw-obsidian .tw-node-glyph { font-size: 25px; line-height: 1; flex-shrink: 0; width: 32px; text-align: center; }
+.tw-obsidian .tw-graph-card .tw-row { gap: 5px; }
+.tw-obsidian .tw-graph-card button { font-size: 10px; min-height: 23px; padding: 3px 6px; }
+.tw-obsidian .tw-card-body { max-height: 360px; overflow: auto; border-top: 1px solid var(--tw-border); margin-top: 10px; padding-top: 12px; font-size: 12px; }
+.tw-obsidian .tw-edge-label { position: absolute; background: var(--tw-panel); color: var(--tw-muted); border: 1px solid var(--tw-border); border-radius: 5px; padding: 2px 6px; font-size: 10px; pointer-events: none; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tw-obsidian .tw-edge-label.is-selected { color: var(--tw-text); border-color: var(--tw-accent); }
+.tw-obsidian .tw-inspector { min-height: 0; overflow-y: auto; overflow-x: hidden; border-left: 1px solid var(--tw-border); padding: 18px; background: var(--tw-panel); }
+.tw-obsidian .tw-inspector > h2 { margin-top: 12px; }
+.tw-obsidian .tw-inspector .tw-markdown { margin: 20px 0; }
+.tw-obsidian .tw-inspector .tw-row > button { font-size: 11px; }
+.tw-obsidian .tw-inspector-empty { display: flex; flex-direction: column; justify-content: center; color: var(--tw-muted); }
+.tw-obsidian .tw-inspector-empty h3 { color: var(--tw-text); margin-top: 15px; }
+.tw-obsidian .tw-empty-glyph { font-size: 56px; color: var(--tw-accent); opacity: .55; }
+.tw-obsidian .tw-eyebrow { font-size: 10px; letter-spacing: .15em; color: var(--tw-muted); }
+.tw-obsidian .tw-section-heading { display: flex; gap: 10px; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.tw-obsidian .tw-section-heading h2, .tw-obsidian .tw-section-heading h3 { margin: 0; }
+.tw-obsidian .tw-section-heading button { font-size: 11px; }
+.tw-obsidian .tw-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 15px; }
+.tw-obsidian .tw-tags > span { padding: 3px 7px; border-radius: 5px; background: var(--tw-panel-alt); font-size: 10px; color: var(--tw-muted); }
+.tw-obsidian .tw-attributes { display: grid; grid-template-columns: minmax(70px, 35%) minmax(0, 1fr); gap: 7px 12px; font-size: 12px; }
+.tw-obsidian .tw-attributes dt { color: var(--tw-muted); }
+.tw-obsidian .tw-attributes dd { margin: 0; overflow-wrap: anywhere; }
+.tw-obsidian .tw-path { font-size: 10px; color: var(--tw-muted); overflow-wrap: anywhere; margin-top: 25px; }
+.tw-obsidian .tw-evidence-list { list-style: none; padding: 0; }
+.tw-obsidian .tw-evidence-list > li { border-left: 2px solid var(--tw-border); padding: 5px 0 5px 10px; margin-bottom: 12px; display: flex; flex-direction: column; align-items: start; gap: 5px; font-size: 12px; overflow-wrap: anywhere; }
+.tw-obsidian .tw-evidence-list blockquote { margin: 0; color: var(--tw-muted); }
+.tw-obsidian .tw-evidence-list p { margin: 0; }
+.tw-obsidian .tw-relation-list { list-style: none; padding: 0; margin: 0; }
+.tw-obsidian .tw-relation-list li { padding: 8px 0; border-bottom: 1px solid var(--tw-border); display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
+.tw-obsidian .tw-relation-list button { box-shadow: none; background: transparent; white-space: normal; text-align: left; font-size: 12px; padding: 0; }
+.tw-obsidian .tw-relation-list button + button { color: var(--tw-muted); font-size: 10px; }
+.tw-obsidian .tw-relation-endpoints { display: flex; flex-direction: column; align-items: stretch; gap: 7px; margin-bottom: 14px; }
+.tw-obsidian .tw-relation-endpoints button { white-space: normal; }
+.tw-obsidian .tw-relation-endpoints > span { text-align: center; font-size: 22px; }
+.tw-obsidian .tw-media-panel { background: var(--tw-panel-alt); padding: 10px; border-radius: var(--tw-radius); margin: 18px 0; }
+.tw-obsidian .tw-media-panel > select { width: 100%; margin-bottom: 10px; }
+.tw-obsidian .tw-media-panel .tw-row { margin-top: 10px; }
+.tw-obsidian .tw-media-panel img, .tw-obsidian .tw-material-preview img { display: block; max-width: 100%; max-height: 400px; object-fit: contain; margin: 0 auto; border-radius: 5px; }
+.tw-obsidian .tw-media-panel video, .tw-obsidian .tw-material-preview video { width: 100%; max-height: 400px; background: #101116; border-radius: 5px; }
+.tw-obsidian .tw-media-panel audio, .tw-obsidian .tw-material-preview audio { width: 100%; }
+.tw-obsidian .tw-file-fallback { padding: 18px 8px; text-align: center; color: var(--tw-muted); font-size: 12px; }
+.tw-obsidian .tw-file-fallback > span { font-size: 48px; display: block; margin-bottom: 9px; }
+.tw-obsidian .tw-markdown { overflow-wrap: anywhere; }
+.tw-obsidian .tw-markdown h1 { font-size: 21px; }
+.tw-obsidian .tw-markdown h2 { font-size: 17px; }
+.tw-obsidian .tw-markdown h3 { font-size: 14px; }
+.tw-obsidian .tw-markdown pre { max-width: 100%; overflow: auto; padding: 10px; background: var(--code-background); }
+.tw-obsidian .tw-markdown table { display: block; max-width: 100%; overflow: auto; border-collapse: collapse; }
+.tw-obsidian .tw-markdown th, .tw-obsidian .tw-markdown td { border: 1px solid var(--tw-border); padding: 5px 8px; }
+.tw-obsidian .tw-markdown blockquote { border-left: 3px solid var(--tw-border); margin-left: 0; padding-left: 12px; color: var(--tw-muted); }
+.tw-obsidian .tw-image-blocked { display: block; padding: 6px 8px; border: 1px dashed var(--tw-border); font-size: 11px; color: var(--tw-muted); }
+.tw-obsidian .tw-vault-embed { display: block; margin: 10px 0; max-width: 100%; }
+.tw-obsidian .tw-vault-embed-preview { display: block; max-width: 100%; max-height: 400px; object-fit: contain; }
+.tw-obsidian .tw-vault-embed-preview > audio, .tw-obsidian .tw-vault-embed-preview > video { width: 100%; }
+.tw-obsidian .tw-vault-link { white-space: normal; text-align: left; height: auto; }
+.tw-obsidian .tw-dossier, .tw-obsidian .tw-materials, .tw-obsidian .tw-trash { overflow: auto; padding: 18px; min-width: 0; }
+.tw-obsidian .tw-dossier-list { display: flex; flex-direction: column; }
+.tw-obsidian .tw-dossier-item { width: 100%; display: flex; align-items: center; gap: 10px; padding: 13px 10px; background: transparent; box-shadow: none; border-radius: 0; border-bottom: 1px solid var(--tw-border); text-align: left; height: auto; }
+.tw-obsidian .tw-dossier-item:hover { background: var(--background-modifier-hover); }
+.tw-obsidian .tw-dossier-item.is-selected { background: color-mix(in srgb, var(--tw-accent) 12%, var(--tw-panel)); }
+.tw-obsidian .tw-dossier-item > div { flex: 1; min-width: 0; }
+.tw-obsidian .tw-dossier-item strong { display: block; white-space: normal; font-size: 13px; overflow-wrap: anywhere; }
+.tw-obsidian .tw-dossier-item > div > span { display: block; margin-top: 4px; font-size: 10px; color: var(--tw-muted); }
+.tw-obsidian .tw-dossier-item > div > p { font-size: 11px; white-space: normal; color: var(--tw-muted); margin: 12px 0 0; }
+.tw-obsidian .tw-dossier-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.tw-obsidian .tw-dossier-cards .tw-dossier-item { align-items: flex-start; padding: 15px; border: 1px solid var(--tw-border); border-radius: var(--tw-radius); }
+.tw-obsidian .tw-dossier-cards .tw-dossier-item > span:last-child { display: none; }
+.tw-obsidian .tw-materials-grid { margin-top: 20px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; }
+.tw-obsidian .tw-materials-grid.has-preview { grid-template-columns: minmax(230px, 1fr) minmax(260px, 1fr); }
+.tw-obsidian .tw-file-list > button { display: flex; width: 100%; height: auto; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--tw-border); border-radius: 8px; background: var(--tw-panel); box-shadow: none; text-align: left; margin-bottom: 7px; }
+.tw-obsidian .tw-file-list > button > span { font-size: 24px; color: var(--tw-muted); }
+.tw-obsidian .tw-file-list > button > div { flex: 1; min-width: 0; }
+.tw-obsidian .tw-file-list strong { display: block; font-size: 12px; white-space: normal; overflow-wrap: anywhere; }
+.tw-obsidian .tw-file-list small { display: block; overflow-wrap: anywhere; white-space: normal; }
+.tw-obsidian .tw-file-list button.is-selected { border-color: var(--tw-accent); background: color-mix(in srgb, var(--tw-accent) 8%, var(--tw-panel)); }
+.tw-obsidian .tw-material-preview { min-width: 0; padding: 15px; background: var(--tw-panel-alt); border-radius: var(--tw-radius); align-self: start; }
+.tw-obsidian .tw-material-preview > .tw-row { margin: 15px 0; }
+.tw-obsidian .tw-hash { font: 10px var(--font-monospace); word-break: break-all; }
+.tw-obsidian .tw-trash-batch { padding: 15px; border: 1px solid var(--tw-border); border-radius: var(--tw-radius); display: flex; gap: 15px; align-items: start; justify-content: space-between; margin: 12px 0; }
+.tw-obsidian .tw-trash-batch ul { margin-bottom: 0; padding-left: 18px; }
+.tw-obsidian .tw-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 14px; border-top: 1px solid var(--tw-border); color: var(--tw-muted); font-size: 10px; }
+.tw-obsidian .tw-empty { padding: 50px 20px; text-align: center; color: var(--tw-muted); }
+.tw-obsidian .tw-empty h3 { color: var(--tw-text); }
+.tw-obsidian .tw-welcome { margin: auto; max-width: 580px; padding: 35px; text-align: center; }
+.tw-obsidian .tw-welcome p { color: var(--tw-muted); margin: 18px 0 24px; line-height: 1.7; }
+.tw-obsidian .tw-welcome .tw-row { justify-content: center; }
+.tw-obsidian .tw-welcome-glyph { font-size: 90px; color: var(--tw-accent); display: block; opacity: .8; margin-bottom: 18px; }
+.tw-obsidian.tw-report-view { min-height: 0; }
+.tw-obsidian .tw-report-heading { flex-shrink: 0; padding: 20px 24px 15px; border-bottom: 1px solid var(--tw-border); }
+.tw-obsidian .tw-report-heading > h1 { margin: 10px 0; overflow-wrap: anywhere; }
+.tw-obsidian .tw-report-heading > p { margin: 0; font-size: 12px; }
+.tw-obsidian .tw-report-content { flex: 1; min-height: 0; overflow: auto; padding: 24px; }
+.tw-obsidian .tw-report-content > .tw-markdown { max-width: 960px; margin: 0 auto; }
+.tw-obsidian .tw-modal-backdrop { position: absolute; inset: 0; background: #0008; z-index: 100; display: flex; align-items: center; justify-content: center; padding: 18px; }
+.tw-obsidian .tw-modal { display: flex; flex-direction: column; width: min(650px, 100%); max-height: 100%; background: var(--tw-panel); border: 1px solid var(--tw-border); border-radius: 14px; box-shadow: 0 15px 70px #0005; overflow: hidden; }
+.tw-obsidian .tw-modal-heading { display: flex; align-items: center; justify-content: space-between; padding: 17px 20px; border-bottom: 1px solid var(--tw-border); }
+.tw-obsidian .tw-modal-heading h2 { margin: 0; font-size: 18px; }
+.tw-obsidian .tw-modal > .tw-error, .tw-obsidian .tw-modal > .tw-muted { margin: 10px 20px; }
+.tw-obsidian .tw-modal > .tw-draft-notice { margin: 10px 20px 0; color: var(--tw-muted); font-size: 11px; }
+.tw-obsidian .tw-modal > .tw-callout { margin: 12px 20px; }
+.tw-obsidian .tw-discard-confirm { padding: 16px 20px; border-top: 1px solid var(--tw-border); background: var(--tw-panel-alt); }
+.tw-obsidian .tw-discard-confirm h3 { margin-top: 0; }
+.tw-obsidian .tw-discard-confirm p { font-size: 12px; }
+.tw-obsidian .tw-dialog-body { border: 0; padding: 18px 20px; margin: 0; min-width: 0; overflow-y: auto; }
+.tw-obsidian .tw-field { display: flex; flex-direction: column; gap: 6px; font-size: 12px; margin-bottom: 15px; }
+.tw-obsidian .tw-field > span { font-weight: 600; }
+.tw-obsidian .tw-field input, .tw-obsidian .tw-field select, .tw-obsidian .tw-field textarea { width: 100%; }
+.tw-obsidian .tw-field textarea { resize: vertical; min-height: 65px; }
+.tw-obsidian .tw-form-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.tw-obsidian .tw-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+.tw-obsidian .tw-edit-block { background: var(--tw-panel-alt); padding: 12px; border: 1px solid var(--tw-border); border-radius: 8px; margin-bottom: 12px; }
+.tw-obsidian .tw-check { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 10px; }
+.tw-obsidian .tw-check input[type="checkbox"] { width: auto; margin: 0; }
+.tw-obsidian .tw-checkbox-list { max-height: 220px; overflow: auto; padding: 10px; border: 1px solid var(--tw-border); border-radius: 6px; }
+.tw-obsidian .tw-checkbox-list .tw-check:last-child { margin-bottom: 0; }
+.tw-obsidian .tw-danger-zone { border-top: 1px solid var(--tw-border); margin-top: 25px; padding-top: 5px; }
+.tw-obsidian .tw-danger-zone > p { margin-top: 10px; font-size: 11px; }
+.tw-obsidian .tw-danger-zone > button { margin-bottom: 12px; }
+.tw-obsidian .tw-callout { padding: 12px; background: var(--tw-panel-alt); border: 1px solid var(--tw-border); border-radius: 7px; margin: 15px 0; font-size: 12px; }
+.tw-obsidian .tw-callout > button { display: block; margin-top: 5px; max-width: 100%; white-space: normal; text-align: left; height: auto; }
+.tw-obsidian .tw-type-list { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
+.tw-obsidian .tw-type-list button { display: flex; align-items: center; gap: 7px; }
+.tw-obsidian .tw-type-list button > span { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
+.tw-obsidian .tw-resource-candidates { max-height: 360px; overflow: auto; }
+.tw-obsidian .tw-resource-candidate { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--tw-border); }
+.tw-obsidian .tw-resource-candidate > div { flex: 1; min-width: 0; }
+.tw-obsidian .tw-resource-candidate strong { display: block; overflow-wrap: anywhere; font-size: 12px; }
+.tw-obsidian .tw-resource-candidate small { display: block; margin-top: 4px; }
+.tw-obsidian .tw-vault-note-picker { margin-bottom: 16px; }
+.tw-obsidian .tw-vault-note-picker > .tw-muted { font-size: 11px; }
+.tw-obsidian .tw-note-options { max-height: 280px; overflow: auto; border: 1px solid var(--tw-border); border-radius: 8px; }
+.tw-obsidian .tw-note-options > button { display: block; width: 100%; text-align: left; height: auto; padding: 9px 11px; background: transparent; box-shadow: none; border: 0; border-bottom: 1px solid var(--tw-border); border-radius: 0; }
+.tw-obsidian .tw-note-options > button[aria-selected="true"] { background: color-mix(in srgb, var(--tw-accent) 13%, var(--tw-panel)); }
+.tw-obsidian .tw-note-options > button > strong, .tw-obsidian .tw-note-options > button > span { display: block; white-space: normal; overflow-wrap: anywhere; }
+.tw-obsidian .tw-note-options > button > span { font-size: 10px; color: var(--tw-muted); margin-top: 3px; }
+.tw-obsidian .tw-note-options > .tw-muted { margin: 12px; font-size: 12px; }
+.tw-obsidian .tw-selected-note { margin-top: 9px; font-size: 11px; overflow-wrap: anywhere; }
+.tw-obsidian .tw-selected-note > span:first-child { color: var(--tw-muted); }
+.tw-obsidian.is-compact .tw-header { gap: 10px; padding: 12px; }
+.tw-obsidian.is-compact .tw-brand small { display: none; }
+.tw-obsidian.is-compact .tw-project-picker { flex: 1; }
+.tw-obsidian.is-compact .tw-project-picker select { width: 100%; min-width: 100px; }
+.tw-obsidian.is-compact .tw-brand strong { font-size: 15px; }
+.tw-obsidian.is-compact .tw-workspace.with-inspector { grid-template-columns: minmax(150px, 1fr) minmax(255px, 44%); }
+.tw-obsidian.is-compact .tw-nav-actions { margin: 7px 0 0; width: 100%; }
+.tw-obsidian.is-compact .tw-inspector { padding: 12px; }
+.tw-obsidian.is-compact .tw-materials-grid.has-preview { grid-template-columns: minmax(0, 1fr); }
+.tw-obsidian.is-compact .tw-graph-legend > span { display: none; }
+.tw-obsidian.is-compact .tw-footer > span:first-child { max-width: 65%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tw-obsidian.is-narrow .tw-workspace.with-inspector { display: block; position: relative; }
+.tw-obsidian.is-narrow .tw-workspace.with-inspector > .tw-graph, .tw-obsidian.is-narrow .tw-workspace.with-inspector > .tw-dossier { height: 100%; }
+.tw-obsidian.is-narrow .tw-inspector { position: absolute; z-index: 20; inset: 0; }
+.tw-obsidian.is-narrow .tw-form-columns { grid-template-columns: minmax(0, 1fr); gap: 0; }
+/* React Flow's core layout is scoped to this plugin instead of injecting global rules. */
+.tw-obsidian .react-flow { direction: ltr; width: 100%; height: 100%; overflow: hidden; position: relative; z-index: 0; }
+.tw-obsidian .react-flow__container { position: absolute; width: 100%; height: 100%; top: 0; left: 0; }
+.tw-obsidian .react-flow__pane { z-index: 1; cursor: default; touch-action: none; }
+.tw-obsidian .react-flow__pane.selection { cursor: crosshair; }
+.tw-obsidian .react-flow__pane.dragging { cursor: grabbing; }
+.tw-obsidian .react-flow__viewport { transform-origin: 0 0; z-index: 2; pointer-events: none; }
+.tw-obsidian .react-flow__renderer { z-index: 4; }
+.tw-obsidian .react-flow__selection { z-index: 6; pointer-events: none; border: 1px solid var(--tw-accent); background: color-mix(in srgb, var(--tw-accent) 10%, transparent); }
+.tw-obsidian .react-flow__nodes { pointer-events: none; transform-origin: 0 0; }
+.tw-obsidian .react-flow__node { position: absolute; user-select: none; pointer-events: all; transform-origin: 0 0; cursor: grab; }
+.tw-obsidian .react-flow__node.dragging { cursor: grabbing; }
+.tw-obsidian .react-flow__node.selectable { cursor: pointer; }
+.tw-obsidian .react-flow__edges { pointer-events: none; overflow: visible; position: absolute; }
+.tw-obsidian .react-flow__edges svg { position: absolute; overflow: visible; pointer-events: none; }
+.tw-obsidian .react-flow__edge { pointer-events: visibleStroke; cursor: pointer; }
+.tw-obsidian .react-flow__edge-path { fill: none; }
+.tw-obsidian .react-flow__connection-path { fill: none; stroke: var(--tw-accent); stroke-width: 2; }
+.tw-obsidian .react-flow__connection { pointer-events: none; }
+.tw-obsidian svg.react-flow__connectionline { z-index: 1001; overflow: visible; position: absolute; }
+.tw-obsidian .react-flow__arrowhead polyline { stroke: var(--text-muted); }
+.tw-obsidian .react-flow__arrowhead polyline.arrowclosed { fill: var(--text-muted); }
+.tw-obsidian .react-flow__edge-interaction { pointer-events: stroke; }
+.tw-obsidian .react-flow__handle { position: absolute; width: 9px; height: 9px; min-width: 9px; min-height: 9px; background: var(--tw-accent); border: 2px solid var(--tw-panel); border-radius: 50%; pointer-events: none; }
+.tw-obsidian .react-flow__handle.connectionindicator, .tw-obsidian .react-flow__handle.connectingfrom { pointer-events: all; cursor: crosshair; }
+.tw-obsidian .react-flow__handle-left { left: 0; top: 50%; transform: translate(-50%, -50%); }
+.tw-obsidian .react-flow__handle-right { right: 0; top: 50%; transform: translate(50%, -50%); }
+.tw-obsidian .react-flow__handle-top { top: 0; left: 50%; transform: translate(-50%, -50%); }
+.tw-obsidian .react-flow__handle-bottom { bottom: 0; left: 50%; transform: translate(-50%, 50%); }
+.tw-obsidian .react-flow__panel { position: absolute; z-index: 5; margin: 12px; }
+.tw-obsidian .react-flow__panel.top { top: 0; }
+.tw-obsidian .react-flow__panel.bottom { bottom: 0; }
+.tw-obsidian .react-flow__panel.left { left: 0; }
+.tw-obsidian .react-flow__panel.right { right: 0; }
+.tw-obsidian .react-flow__panel.center { left: 50%; transform: translateX(-50%); }
+.tw-obsidian .react-flow__controls { display: flex; flex-direction: column; border-radius: 6px; overflow: hidden; box-shadow: 0 2px 8px #0002; }
+.tw-obsidian .react-flow__controls-button { display: flex; justify-content: center; align-items: center; height: 28px; width: 28px; padding: 6px; border: none; border-radius: 0; border-bottom: 1px solid var(--tw-border); background: var(--tw-panel); color: var(--tw-text); }
+.tw-obsidian .react-flow__controls-button svg { width: 14px; height: 14px; fill: currentColor; }
+.tw-obsidian .react-flow__minimap { width: 140px; height: 100px; background: var(--tw-panel); border: 1px solid var(--tw-border); border-radius: 6px; overflow: hidden; }
+.tw-obsidian .react-flow__minimap svg { width: 100%; height: 100%; }
+.tw-obsidian .react-flow__minimap-mask { fill: color-mix(in srgb, var(--tw-panel-alt) 70%, transparent); }
+.tw-obsidian .react-flow__minimap-node { stroke: none; }
+.tw-obsidian .react-flow__background { background-color: var(--tw-panel-alt); pointer-events: none; z-index: -1; }
+.tw-obsidian .react-flow__background-pattern.dots { fill: var(--tw-border); }
+.tw-obsidian .react-flow__edgelabel-renderer { position: absolute; width: 100%; height: 100%; pointer-events: none; user-select: none; left: 0; top: 0; }
+.tw-obsidian .react-flow__nodesselection { z-index: 3; pointer-events: none; }
+.tw-obsidian .react-flow__nodesselection-rect { position: absolute; border: 1px dashed var(--tw-accent); background: color-mix(in srgb, var(--tw-accent) 5%, transparent); pointer-events: all; }
+.tw-obsidian .react-flow__attribution { display: none; }
+.tw-obsidian .tw-vault-image, .tw-obsidian .tw-vault-video { max-width: 100%; max-height: 400px; }
+.tw-obsidian .tw-vault-image { object-fit: contain; }
+@container (max-width: 560px) {
+  .tw-obsidian .tw-workspace.with-inspector { display: block; position: relative; }
+  .tw-obsidian .tw-workspace.with-inspector > .tw-graph, .tw-obsidian .tw-workspace.with-inspector > .tw-dossier { height: 100%; }
+  .tw-obsidian .tw-inspector { position: absolute; z-index: 20; inset: 0; }
+  .tw-obsidian .tw-form-columns { grid-template-columns: minmax(0, 1fr); gap: 0; }
+}

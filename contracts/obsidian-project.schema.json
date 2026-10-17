@@ -1,0 +1,1547 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:traceweave:obsidian-project:1.0",
+  "title": "TraceWeave Obsidian ProjectState 1.0",
+  "description": "Strict structural schema for .twdata/projects/<projectId>/state.json. Runtime validateProject additionally enforces NFC, full Unicode casefold uniqueness, exact Emoji17 membership, UTF-8 byte limits, real calendar dates, reference integrity, unique IDs, membership, deletion/snapshot ownership, primary attachments and matching asset/blob proofs. This schema does not read or modify Markdown. Legacy _TraceWeave snapshot paths remain readable for 0.1.0 migration and validated backup import; New writes use .twdata; TWData and _TraceWeave snapshot paths remain readable for staged upgrades. User notes/originals are visible outside hidden folders.",
+  "type": "object",
+  "properties": {
+    "format": {
+      "const": "traceweave.obsidian-project"
+    },
+    "formatVersion": {
+      "const": "1.0"
+    },
+    "requiredFeatures": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 0
+    },
+    "id": {
+      "$ref": "#/$defs/id"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "pattern": "^(?!\\s)[\\s\\S]*\\S$"
+    },
+    "descriptionMarkdown": {
+      "type": "string",
+      "minLength": 0,
+      "maxLength": 1048576,
+      "pattern": "^[^\\u0000]*$"
+    },
+    "status": {
+      "enum": [
+        "active",
+        "archived"
+      ]
+    },
+    "revision": {
+      "$ref": "#/$defs/integer"
+    },
+    "createdAt": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "updatedAt": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/node"
+      },
+      "uniqueItems": true
+    },
+    "nodeTypes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/nodeType"
+      },
+      "uniqueItems": true,
+      "minItems": 2
+    },
+    "relations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/relation"
+      },
+      "uniqueItems": true
+    },
+    "relationTypes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/relationType"
+      },
+      "uniqueItems": true
+    },
+    "memberships": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/membership"
+      },
+      "uniqueItems": true
+    },
+    "blobs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/blob"
+      },
+      "uniqueItems": true
+    },
+    "assets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/asset"
+      },
+      "uniqueItems": true
+    },
+    "attachments": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/attachment"
+      },
+      "uniqueItems": true
+    },
+    "deletionBatches": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/deletionBatch"
+      },
+      "uniqueItems": true
+    },
+    "snapshots": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/snapshot"
+      },
+      "uniqueItems": true
+    },
+    "receipts": {
+      "type": "object",
+      "propertyNames": {
+        "$ref": "#/$defs/id"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/receipt"
+      }
+    },
+    "importedData": {
+      "$ref": "#/$defs/metadata"
+    }
+  },
+  "required": [
+    "format",
+    "formatVersion",
+    "requiredFeatures",
+    "id",
+    "title",
+    "descriptionMarkdown",
+    "status",
+    "revision",
+    "createdAt",
+    "updatedAt",
+    "nodes",
+    "nodeTypes",
+    "relations",
+    "relationTypes",
+    "memberships",
+    "blobs",
+    "assets",
+    "attachments",
+    "deletionBatches",
+    "snapshots",
+    "receipts",
+    "importedData"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,9})?Z$"
+    },
+    "url": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "pattern": "^https?://[^\\s/]+(?:[/?#][^\\u0000]*)?$"
+    },
+    "integer": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "numeric": {
+      "type": "number",
+      "minimum": -9007199254740991,
+      "maximum": 9007199254740991
+    },
+    "assessment": {
+      "enum": [
+        "unreviewed",
+        "confirmed_by_user",
+        "hypothesis",
+        "refuted_by_user"
+      ]
+    },
+    "confidence": {
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        null
+      ]
+    },
+    "jsonValue": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/jsonValue"
+          }
+        },
+        {
+          "$ref": "#/$defs/metadata"
+        }
+      ]
+    },
+    "metadata": {
+      "type": "object",
+      "propertyNames": {
+        "not": {
+          "enum": [
+            "__proto__",
+            "prototype",
+            "constructor"
+          ]
+        }
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/jsonValue"
+      }
+    },
+    "notePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "pattern": "^[^\\u0000]*$",
+      "allOf": [
+        {
+          "pattern": "^(?!/)(?!.*//)(?!.*[\\\\\\u0000-\\u001F\\u007F:#?])[^/]+(?:/[^/]+)*$"
+        },
+        {
+          "not": {
+            "pattern": "(?:^|/)(?:\\.|\\.\\.)(?:/|$)"
+          }
+        },
+        {
+          "not": {
+            "pattern": "(?:^|/)\\s|[.\\s](?:/|$)"
+          }
+        },
+        {
+          "not": {
+            "pattern": "(?:^|/)\\.[Oo][Bb][Ss][Ii][Dd][Ii][Aa][Nn](?:/|$)"
+          }
+        },
+        {
+          "pattern": "\\.[mM][dD]$"
+        },
+        {
+          "not": {
+            "pattern": "(?:^|/)(?:_[Tt][Rr][Aa][Cc][Ee][Ww][Ee][Aa][Vv][Ee]|\\.[Oo][Bb][Ss][Ii][Dd][Ii][Aa][Nn])(?:/|$)"
+          }
+        },
+        {
+          "if": {
+            "pattern": "(?:^|/)[Tt][Ww][Dd][Aa][Tt][Aa](?:/|$)"
+          },
+          "then": {
+            "pattern": "^TWData/notes/.+"
+          }
+        },
+        {
+          "not": {
+            "pattern": "(?:^|/)\\."
+          }
+        }
+      ]
+    },
+    "resourcePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "pattern": "^[^\\u0000]*$",
+      "allOf": [
+        {
+          "pattern": "^(?!/)(?!.*//)(?!.*[\\\\\\u0000-\\u001F\\u007F:#?])[^/]+(?:/[^/]+)*$"
+        },
+        {
+          "not": {
+            "pattern": "(?:^|/)(?:\\.|\\.\\.)(?:/|$)"
+          }
+        },
+        {
+          "not": {
+            "pattern": "(?:^|/)\\s|[.\\s](?:/|$)"
+          }
+        },
+        {
+          "not": {
+            "pattern": "(?:^|/)\\.[Oo][Bb][Ss][Ii][Dd][Ii][Aa][Nn](?:/|$)"
+          }
+        },
+        {
+          "not": {
+            "pattern": "(?:^|/)(?:_[Tt][Rr][Aa][Cc][Ee][Ww][Ee][Aa][Vv][Ee]|\\.[Oo][Bb][Ss][Ii][Dd][Ii][Aa][Nn])(?:/|$)"
+          }
+        },
+        {
+          "if": {
+            "pattern": "(?:^|/)[Tt][Ww][Dd][Aa][Tt][Aa](?:/|$)"
+          },
+          "then": {
+            "pattern": "^TWData/resources/.+"
+          }
+        },
+        {
+          "not": {
+            "pattern": "(?:^|/)\\."
+          }
+        }
+      ]
+    },
+    "mediaKind": {
+      "enum": [
+        "image",
+        "audio",
+        "video",
+        "file",
+        "text"
+      ]
+    },
+    "mimeType": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "pattern": "^[A-Za-z0-9_!#$&^.+-]+/[A-Za-z0-9_!#$&^.+-]+$"
+    },
+    "calendarDate": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "string",
+              "pattern": "^\\d{4}$"
+            },
+            "precision": {
+              "const": "year"
+            }
+          },
+          "required": [
+            "value",
+            "precision"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "string",
+              "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])$"
+            },
+            "precision": {
+              "const": "month"
+            }
+          },
+          "required": [
+            "value",
+            "precision"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "string",
+              "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])$"
+            },
+            "precision": {
+              "const": "day"
+            }
+          },
+          "required": [
+            "value",
+            "precision"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "geo": {
+      "type": "object",
+      "properties": {
+        "latitude": {
+          "type": "number",
+          "minimum": -90,
+          "maximum": 90
+        },
+        "longitude": {
+          "type": "number",
+          "minimum": -180,
+          "maximum": 180
+        },
+        "accuracyMeters": {
+          "anyOf": [
+            {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "latitude",
+        "longitude",
+        "accuracyMeters"
+      ],
+      "additionalProperties": false
+    },
+    "attribute": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "pattern": "^(?!\\s)[\\s\\S]*\\S$"
+        },
+        "valueType": {
+          "enum": [
+            "text",
+            "number",
+            "boolean",
+            "date",
+            "datetime",
+            "url",
+            "geo"
+          ]
+        },
+        "value": {
+          "$ref": "#/$defs/jsonValue"
+        },
+        "sortOrder": {
+          "$ref": "#/$defs/integer"
+        }
+      },
+      "required": [
+        "id",
+        "key",
+        "valueType",
+        "value",
+        "sortOrder"
+      ],
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "properties": {
+            "valueType": {
+              "const": "text"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 0,
+                  "maxLength": 10000,
+                  "pattern": "^[^\\u0000]*$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "properties": {
+            "valueType": {
+              "const": "number"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "properties": {
+            "valueType": {
+              "const": "boolean"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "properties": {
+            "valueType": {
+              "const": "date"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/calendarDate"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "properties": {
+            "valueType": {
+              "const": "datetime"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/timestamp"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "properties": {
+            "valueType": {
+              "const": "url"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/url"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "properties": {
+            "valueType": {
+              "const": "geo"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/geo"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "evidence": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "sourceKind": {
+          "enum": [
+            "node",
+            "asset",
+            "url"
+          ]
+        },
+        "sourceNodeId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "assetId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "url": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/url"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "label": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 500,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "quote": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 10000,
+              "pattern": "^[^\\u0000]*$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "locator": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 10000,
+              "pattern": "^[^\\u0000]*$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 10000,
+              "pattern": "^[^\\u0000]*$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "accessedAt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/timestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "sourceKind",
+        "sourceNodeId",
+        "assetId",
+        "url",
+        "label",
+        "quote",
+        "locator",
+        "note",
+        "accessedAt"
+      ],
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "properties": {
+            "sourceKind": {
+              "const": "node"
+            },
+            "sourceNodeId": {
+              "$ref": "#/$defs/id"
+            },
+            "assetId": {
+              "type": "null"
+            },
+            "url": {
+              "type": "null"
+            }
+          }
+        },
+        {
+          "properties": {
+            "sourceKind": {
+              "const": "asset"
+            },
+            "sourceNodeId": {
+              "type": "null"
+            },
+            "assetId": {
+              "$ref": "#/$defs/id"
+            },
+            "url": {
+              "type": "null"
+            }
+          }
+        },
+        {
+          "properties": {
+            "sourceKind": {
+              "const": "url"
+            },
+            "sourceNodeId": {
+              "type": "null"
+            },
+            "assetId": {
+              "type": "null"
+            },
+            "url": {
+              "$ref": "#/$defs/url"
+            }
+          }
+        }
+      ]
+    },
+    "nodeType": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "code": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]{0,63}$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "pattern": "^(?!\\s)[\\s\\S]*\\S$"
+        },
+        "color": {
+          "type": "string",
+          "pattern": "^#[a-fA-F0-9]{6}$"
+        },
+        "iconKey": {
+          "enum": [
+            "user",
+            "building",
+            "phone",
+            "mail",
+            "globe",
+            "link",
+            "map-pin",
+            "calendar",
+            "file-text",
+            "image",
+            "music",
+            "video",
+            "check-circle",
+            "folder",
+            "tag",
+            "circle",
+            "book",
+            "briefcase",
+            "database",
+            "flag",
+            "hash",
+            "search",
+            "shield",
+            "star"
+          ]
+        },
+        "isHidden": {
+          "type": "boolean"
+        },
+        "isSystem": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "code",
+        "name",
+        "color",
+        "iconKey",
+        "isHidden",
+        "isSystem"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "group"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "isSystem": {
+                "const": true
+              }
+            }
+          }
+        }
+      ]
+    },
+    "node": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "pattern": "^(?!\\s)[\\s\\S]*\\S$"
+        },
+        "notePath": {
+          "$ref": "#/$defs/notePath"
+        },
+        "noteHash": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/hash"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "typeId": {
+          "$ref": "#/$defs/id"
+        },
+        "iconEmoji": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 32,
+              "pattern": "^[^\\u0000]*$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "assessment": {
+          "$ref": "#/$defs/assessment"
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "attributes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/attribute"
+          },
+          "maxItems": 1000,
+          "uniqueItems": true
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence"
+          },
+          "uniqueItems": true
+        },
+        "x": {
+          "type": "number",
+          "minimum": -1000000,
+          "maximum": 1000000
+        },
+        "y": {
+          "type": "number",
+          "minimum": -1000000,
+          "maximum": 1000000
+        },
+        "zIndex": {
+          "type": "integer",
+          "minimum": -2147483648,
+          "maximum": 2147483647
+        },
+        "createdAt": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "updatedAt": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "deletedAt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/timestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "deletionBatchId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "missing": {
+          "type": "boolean"
+        },
+        "subtitle": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 500,
+              "pattern": "^[^\\u0000]*$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50,
+            "pattern": "^(?!\\s)[\\s\\S]*\\S$"
+          },
+          "maxItems": 50,
+          "uniqueItems": true
+        },
+        "origin": {
+          "$ref": "#/$defs/metadata"
+        },
+        "extensions": {
+          "$ref": "#/$defs/metadata"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "notePath",
+        "noteHash",
+        "typeId",
+        "iconEmoji",
+        "assessment",
+        "confidence",
+        "attributes",
+        "evidence",
+        "x",
+        "y",
+        "zIndex",
+        "createdAt",
+        "updatedAt",
+        "deletedAt",
+        "deletionBatchId",
+        "missing",
+        "subtitle",
+        "tags",
+        "origin",
+        "extensions"
+      ],
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "properties": {
+            "deletedAt": {
+              "type": "null"
+            },
+            "deletionBatchId": {
+              "type": "null"
+            }
+          }
+        },
+        {
+          "properties": {
+            "deletedAt": {
+              "$ref": "#/$defs/timestamp"
+            },
+            "deletionBatchId": {
+              "$ref": "#/$defs/id"
+            }
+          }
+        }
+      ]
+    },
+    "relation": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "sourceNodeId": {
+          "$ref": "#/$defs/id"
+        },
+        "targetNodeId": {
+          "$ref": "#/$defs/id"
+        },
+        "relationType": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]{0,63}$"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 200,
+              "pattern": "^[^\\u0000]*$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "directed": {
+          "type": "boolean"
+        },
+        "bidirectional": {
+          "type": "boolean"
+        },
+        "assessment": {
+          "$ref": "#/$defs/assessment"
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "noteMarkdown": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 65536,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence"
+          },
+          "uniqueItems": true
+        },
+        "deletedAt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/timestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "deletionBatchId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "createdAt": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "updatedAt": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "origin": {
+          "$ref": "#/$defs/metadata"
+        }
+      },
+      "required": [
+        "id",
+        "sourceNodeId",
+        "targetNodeId",
+        "relationType",
+        "label",
+        "directed",
+        "bidirectional",
+        "assessment",
+        "confidence",
+        "noteMarkdown",
+        "evidence",
+        "deletedAt",
+        "deletionBatchId",
+        "createdAt",
+        "updatedAt",
+        "origin"
+      ],
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "properties": {
+            "deletedAt": {
+              "type": "null"
+            },
+            "deletionBatchId": {
+              "type": "null"
+            }
+          }
+        },
+        {
+          "properties": {
+            "deletedAt": {
+              "$ref": "#/$defs/timestamp"
+            },
+            "deletionBatchId": {
+              "$ref": "#/$defs/id"
+            }
+          }
+        }
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "bidirectional": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "directed": {
+                "const": true
+              }
+            }
+          }
+        }
+      ]
+    },
+    "relationType": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]{0,63}$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "pattern": "^(?!\\s)[\\s\\S]*\\S$"
+        },
+        "defaultDirected": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "code",
+        "name",
+        "defaultDirected"
+      ],
+      "additionalProperties": false
+    },
+    "membership": {
+      "type": "object",
+      "properties": {
+        "groupNodeId": {
+          "$ref": "#/$defs/id"
+        },
+        "memberNodeId": {
+          "$ref": "#/$defs/id"
+        },
+        "sortOrder": {
+          "$ref": "#/$defs/integer"
+        }
+      },
+      "required": [
+        "groupNodeId",
+        "memberNodeId",
+        "sortOrder"
+      ],
+      "additionalProperties": false
+    },
+    "blob": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "path": {
+          "$ref": "#/$defs/resourcePath"
+        },
+        "sha256": {
+          "$ref": "#/$defs/hash"
+        },
+        "byteSize": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 536870912
+        },
+        "mimeType": {
+          "$ref": "#/$defs/mimeType"
+        },
+        "mediaKind": {
+          "$ref": "#/$defs/mediaKind"
+        }
+      },
+      "required": [
+        "id",
+        "path",
+        "sha256",
+        "byteSize",
+        "mimeType",
+        "mediaKind"
+      ],
+      "additionalProperties": false
+    },
+    "asset": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "blobId": {
+          "$ref": "#/$defs/id"
+        },
+        "originalName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "pattern": "^(?!\\s)[\\s\\S]*\\S$"
+        },
+        "mimeType": {
+          "$ref": "#/$defs/mimeType"
+        },
+        "mediaKind": {
+          "$ref": "#/$defs/mediaKind"
+        },
+        "byteSize": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 536870912
+        },
+        "sha256": {
+          "$ref": "#/$defs/hash"
+        },
+        "createdAt": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "deletedAt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/timestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "deletionBatchId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sourceUrl": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/url"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sourceAuthor": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 500,
+              "pattern": "^[^\\u0000]*$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sourceCreatedAt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/timestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "noteMarkdown": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 65536,
+          "pattern": "^[^\\u0000]*$"
+        },
+        "origin": {
+          "$ref": "#/$defs/metadata"
+        }
+      },
+      "required": [
+        "id",
+        "blobId",
+        "originalName",
+        "title",
+        "mimeType",
+        "mediaKind",
+        "byteSize",
+        "sha256",
+        "createdAt",
+        "deletedAt",
+        "deletionBatchId",
+        "sourceUrl",
+        "sourceAuthor",
+        "sourceCreatedAt",
+        "noteMarkdown",
+        "origin"
+      ],
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "properties": {
+            "deletedAt": {
+              "type": "null"
+            },
+            "deletionBatchId": {
+              "type": "null"
+            }
+          }
+        },
+        {
+          "properties": {
+            "deletedAt": {
+              "$ref": "#/$defs/timestamp"
+            },
+            "deletionBatchId": {
+              "$ref": "#/$defs/id"
+            }
+          }
+        }
+      ]
+    },
+    "attachment": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "nodeId": {
+          "$ref": "#/$defs/id"
+        },
+        "assetId": {
+          "$ref": "#/$defs/id"
+        },
+        "role": {
+          "enum": [
+            "primary",
+            "attachment"
+          ]
+        },
+        "sortOrder": {
+          "$ref": "#/$defs/integer"
+        },
+        "caption": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 10000,
+              "pattern": "^[^\\u0000]*$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "nodeId",
+        "assetId",
+        "role",
+        "sortOrder",
+        "caption"
+      ],
+      "additionalProperties": false
+    },
+    "deletionBatch": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "nodeIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "uniqueItems": true
+        },
+        "relationIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "uniqueItems": true
+        },
+        "memberships": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/membership"
+          },
+          "uniqueItems": true
+        },
+        "createdAt": {
+          "$ref": "#/$defs/timestamp"
+        }
+      },
+      "required": [
+        "id",
+        "nodeIds",
+        "relationIds",
+        "memberships",
+        "createdAt"
+      ],
+      "additionalProperties": false
+    },
+    "snapshot": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "pattern": "^(?!\\s)[\\s\\S]*\\S$"
+        },
+        "path": {
+          "type": "string",
+          "pattern": "^(?:\\.twdata|TWData|_TraceWeave)/projects/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/reports/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/snapshot\\.json$"
+        },
+        "sourceRevision": {
+          "$ref": "#/$defs/integer"
+        },
+        "createdAt": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "assetIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "path",
+        "sourceRevision",
+        "createdAt",
+        "assetIds"
+      ],
+      "additionalProperties": false
+    },
+    "receipt": {
+      "type": "object",
+      "properties": {
+        "hash": {
+          "$ref": "#/$defs/hash"
+        },
+        "revision": {
+          "$ref": "#/$defs/integer"
+        },
+        "timestamp": {
+          "$ref": "#/$defs/timestamp"
+        }
+      },
+      "required": [
+        "hash",
+        "revision",
+        "timestamp"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "name": "traceweave-obsidian",
+  "version": "0.1.3",
+  "description": "Local research graph for Obsidian with centralized metadata and ordinary Markdown notes.",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=24.21.0 <25"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "build": "npm run typecheck && node scripts/build.mjs && node scripts/verify-bundle.mjs",
+    "dev": "node scripts/build.mjs --watch",
+    "package": "npm run build && node scripts/package.mjs",
+    "install:local": "node scripts/install-local.mjs",
+    "verify:public": "node scripts/verify-publication.mjs"
+  },
+  "dependencies": {
+    "@xyflow/react": "12.12.0",
+    "ajv": "8.20.0",
+    "jsonc-parser": "3.3.1",
+    "micromark": "4.0.3",
+    "micromark-util-decode-string": "2.0.1",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-markdown": "10.1.0",
+    "remark-gfm": "4.0.1",
+    "yauzl": "3.4.0",
+    "yazl": "3.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@types/yauzl": "2.10.3",
+    "@types/yazl": "2.4.5",
+    "esbuild": "0.28.2",
+    "happy-dom": "21.0.3",
+    "obsidian": "1.14.4",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3"
+  }
+}
