@@ -33,7 +33,7 @@ BRAT requires a release containing `main.js`, `manifest.json` and `styles.css`. 
 
 ## Manual Fallback
 
-1. Open [GitHub Releases](https://github.com/andrey-torlopov/TraceWeaveObsidian/releases) and download the installable `traceweave-0.1.3.zip`, or download the three compiled assets separately.
+1. Open [GitHub Releases](https://github.com/andrey-torlopov/TraceWeaveObsidian/releases) and download the installable `traceweave-0.1.4.zip`, or download the three compiled assets separately.
 2. In your vault, create `.obsidian/plugins/traceweave/`.
 3. Put `main.js`, `manifest.json` and `styles.css` directly in that folder. Avoid a second nested `traceweave/` directory.
 4. Open Obsidian, enable TraceWeave under Community plugins, and restart the application for this vault.
@@ -42,7 +42,7 @@ Do not copy `node_modules`, your research data or the source tree into the plugi
 
 ## Interface Language
 
-The latest published version, **0.1.3**, uses Russian labels. English support belongs to **development version 0.1.4**, which is not yet released through the channels above.
+TraceWeave **0.1.4** supports English and Russian interfaces.
 
 In 0.1.4, TraceWeave follows Obsidian's language: Russian for Russian, English for other languages. Choose **Settings → TraceWeave → Interface language** to use **Automatic**, **Русский** or **English** independently. Switching the interface preserves research content and drafts; visible note and attachment paths remain unchanged.
 

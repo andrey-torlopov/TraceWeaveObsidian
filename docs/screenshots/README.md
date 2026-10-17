@@ -1,8 +1,8 @@
 # TraceWeave screenshots / Скриншоты TraceWeave
 
-Real screenshots of the local **0.1.4 development version** of TraceWeave in desktop Obsidian **1.14.4**, using the light and dark themes. Version 0.1.4 is not yet released. **Lighthouse Archive / Архив маяка** is a fictional research project with English and Russian demonstration content. Its notes and attachments were created for these screenshots.
+Real screenshots of TraceWeave **0.1.4** in desktop Obsidian **1.14.4**, using the light and dark themes. **Lighthouse Archive / Архив маяка** is a fictional research project with English and Russian demonstration content. Its notes and attachments were created for these screenshots.
 
-Реальные скриншоты локальной **разрабатываемой версии TraceWeave 0.1.4** в настольном Obsidian **1.14.4**, в светлой и тёмной темах. Версия 0.1.4 ещё не опубликована. **Lighthouse Archive / «Архив маяка»** — вымышленное исследование с демонстрационными материалами на английском и русском языках. Заметки и вложения созданы для этих снимков.
+Реальные скриншоты **TraceWeave 0.1.4** в настольном Obsidian **1.14.4**, в светлой и тёмной темах. **Lighthouse Archive / «Архив маяка»** — вымышленное исследование с демонстрационными материалами на английском и русском языках. Заметки и вложения созданы для этих снимков.
 
 ## English demonstration content
 

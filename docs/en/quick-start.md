@@ -2,7 +2,7 @@
 
 *[Русский](../ru/quick-start.md)*
 
-[Install and enable TraceWeave](installation.md). English labels below refer to development version **0.1.4**, which is not yet released; Russian equivalents also apply to published version 0.1.3. In 0.1.4, the interface follows Obsidian's language; override it under **Settings → TraceWeave → Interface language**.
+[Install and enable TraceWeave](installation.md). The labels below match TraceWeave **0.1.4**, with Russian equivalents alongside the English labels. In 0.1.4, the interface follows Obsidian's language; override it under **Settings → TraceWeave → Interface language**.
 
 ## Start with Your Notes
 

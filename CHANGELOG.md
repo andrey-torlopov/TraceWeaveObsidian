@@ -2,7 +2,7 @@
 
 Plugin versions and portable archive format versions are independent.
 
-## 0.1.4 — English interface and screenshots (unreleased)
+## 0.1.4 — English interface and screenshots — 2026-10-17
 
 - English and Russian interfaces, following the Obsidian language with an override in plugin settings.
 - Language changes preserve the current view, filters, selected material and unsaved metadata drafts.

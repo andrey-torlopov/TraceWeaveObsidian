@@ -4,7 +4,7 @@
 
 Guides for the desktop plugin: install a release, connect ordinary vault notes, work with materials and preserve the graph when moving data.
 
-**English and Russian interfaces are available in development version 0.1.4, which is not yet released.** The language follows Obsidian automatically and can be overridden under **Settings → TraceWeave → Interface language**. These guides use English labels with Russian equivalents where useful; published version 0.1.3 uses Russian labels. Changing the interface language does not translate notes, relationship labels or custom type names.
+**English and Russian interfaces are available in TraceWeave 0.1.4.** The language follows Obsidian automatically and can be overridden under **Settings → TraceWeave → Interface language**. These guides use English labels with Russian equivalents where useful. Changing the interface language does not translate notes, relationship labels or custom type names.
 
 - [Installation, BRAT and updates](installation.md)
 - [Quick start](quick-start.md)

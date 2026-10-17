@@ -18,7 +18,7 @@ Use existing Markdown notes in place, create documents, attach images, PDFs, aud
 
 The images above are shared TraceWeave illustrations, not screenshots of the plugin.
 
-**Development version 0.1.4 adds English and Russian interfaces; it is not yet released.** The language follows Obsidian automatically, with an override under **Settings → TraceWeave → Interface language**. Notes, relationship labels and custom types keep their original text. Published version 0.1.3 uses Russian labels.
+**TraceWeave 0.1.4 supports English and Russian interfaces.** The language follows Obsidian automatically, with an override under **Settings → TraceWeave → Interface language**. Notes, relationship labels and custom types keep their original text.
 
 ## Screenshots
 
@@ -78,4 +78,4 @@ npm test
 npm run package
 ```
 
-Packaging builds the bundle, creates `release/traceweave-0.1.4.zip` and places individual release assets in `release/0.1.4/`. This is a local development package until a GitHub release is published. Users install the compiled plugin, without Node.js or this source tree. The plugin is licensed under [MIT](LICENSE); bundled components retain their [own licenses](THIRD_PARTY_NOTICES.md).
+Packaging builds the bundle, creates `release/traceweave-0.1.4.zip` and places individual release assets in `release/0.1.4/`. Users install the compiled plugin, without Node.js or this source tree. The plugin is licensed under [MIT](LICENSE); bundled components retain their [own licenses](THIRD_PARTY_NOTICES.md).
