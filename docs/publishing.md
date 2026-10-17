@@ -1,6 +1,6 @@
 # Сборка, проверка и публикация TraceWeave для Obsidian
 
-Репозиторий: [andrey-torlopov/TraceWeaveObsidian](https://github.com/andrey-torlopov/TraceWeaveObsidian). Версия этой инструкции — 0.1.5. Установка пользователем описана [здесь](ru/installation.md); документация веб-версии и её Docker-дистрибутив находятся в [отдельном репозитории](https://github.com/andrey-torlopov/TraceWeave).
+Репозиторий: [andrey-torlopov/TraceWeaveObsidian](https://github.com/andrey-torlopov/TraceWeaveObsidian). Версия этой инструкции — 0.1.6. Установка пользователем описана [здесь](ru/installation.md); документация веб-версии и её Docker-дистрибутив находятся в [отдельном репозитории](https://github.com/andrey-torlopov/TraceWeave).
 
 ## Что публикуется
 
@@ -29,7 +29,7 @@ git diff --check
 
 ```sh
 gitleaks git . --log-opts='--all --full-history' --redact --no-banner --ignore-gitleaks-allow
-gitleaks dir release/0.1.5 --redact --no-banner --ignore-gitleaks-allow
+gitleaks dir release/0.1.6 --redact --no-banner --ignore-gitleaks-allow
 ```
 
 CI выполняет проверки при push/PR и не публикует релизы автоматически. Для нового version tag отдельный job создаёт GitHub build provenance attestations для трёх compiled assets; upload-artifact сохраняет именно эти проверенные байты. Линтер использует официальный recommended-конфиг Obsidian без отключения правил. В CI закреплены версии инструментов; бинарный Gitleaks проверяется по опубликованной контрольной сумме. Не добавляйте suppressions для настоящих секретов. При находке уже опубликованного ключа сначала отзовите/замените его; очистка нового commit не удаляет историю или скачанные копии.
@@ -38,9 +38,9 @@ CI выполняет проверки при push/PR и не публикует
 
 ## GitHub Release
 
-Согласуйте `package.json`, lock-файл, `manifest.json` и `versions.json`. Для 0.1.5 минимальная версия приложения — 1.14.4; версия установщика не доказывает совместимость со старым runtime.
+Согласуйте `package.json`, lock-файл, `manifest.json` и `versions.json`. Для 0.1.6 минимальная версия приложения — 1.14.4; версия установщика не доказывает совместимость со старым runtime.
 
-После проверок и push `main` создайте релиз с тегом **`0.1.5`** — точно как `manifest.version`, без префикса `v`. К релизу приложите **отдельные** файлы из `release/0.1.5/`:
+После проверок и push `main` создайте релиз с тегом **`0.1.6`** — точно как `manifest.version`, без префикса `v`. К релизу приложите **отдельные** файлы из `release/0.1.6/`:
 
 - `main.js`;
 - `manifest.json`;
@@ -65,7 +65,7 @@ README/manifest должны находиться в корне основной
 
 Вход в аккаунт и принятие персональных обязательств выполняет владелец. Пока подача/проверка не завершены, документация должна прямо говорить, что плагин ещё не находится через поиск Obsidian. Подробности формы: [Set up and claim](https://docs.obsidian.md/community-directory/set-up-and-claim).
 
-Проверьте уникальность ID в момент подачи. `isDesktopOnly: true` остаётся обязательным, пока используются Node.js/Electron. В README раскрывается чтение явно выбранных внешних файлов при импорте. Исследования сохраняются внутри vault; production-экспорты создаются в `.twdata/exports` и показываются в файловом менеджере. Никаких обещаний автоматической синхронизации с веб-приложением.
+Проверьте уникальность ID в момент подачи. `isDesktopOnly: true` остаётся обязательным, пока используются Node.js/Electron. В README раскрывается чтение явно выбранных внешних файлов при импорте. Исследования сохраняются внутри vault; ZIP-экспорты создаются в `.twdata/exports` и показываются в файловом менеджере. **Экспорт отчёта** создаёт видимую папку с `summary.md`, `scheme.canvas` и `Attachments/` по пути из настроек; пустой путь означает корень vault. Никаких обещаний автоматической синхронизации с веб-приложением.
 
 ## Установка до и после каталога
 

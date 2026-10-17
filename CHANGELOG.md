@@ -2,7 +2,7 @@
 
 Plugin versions and portable archive format versions are independent.
 
-## 0.1.6 — Readable vault reports — unreleased
+## 0.1.6 — Readable vault reports — 2026-10-17
 
 - Export the entire active research into a visible vault folder containing `summary.md`, `scheme.canvas` and categorized copies under `Attachments/`.
 - Configure the reports folder in plugin settings; an empty path uses the vault root. Repeated exports create numbered folders without overwriting earlier reports.
