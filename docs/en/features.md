@@ -4,11 +4,15 @@
 
 ## Research over Ordinary Markdown
 
-Create separate investigations with one graph each. Connect existing notes from visible folders anywhere in the same vault without copying them. New documents use visible `Исследования/Заметки/` folders. Edit text in Obsidian, read cards on the graph, or browse a dossier as a list or cards.
+Create separate investigations with one graph each. Each node links to an ordinary Markdown file in the same vault. In **+ Document**, enter the graph title and choose an existing note without copying it, or create a new note using Obsidian's configured new-note location. Graph titles can differ from filenames. Text and Properties stay in the original note; metadata, relationships and paths are stored separately.
+
+Double-click a node to open its note in Obsidian. **Read** explicitly expands a card. You can also read a dossier as a list or cards; opening a note never creates a private duplicate inside the plugin.
 
 Document metadata includes type, an optional per-card emoji, assessment, confidence, typed attributes and evidence. Attributes support text, number, boolean, date, date/time, URL and coordinates. Evidence can reference another document, a registered file or an explicit URL, with a quotation, locator and comment.
 
-Search and filter the research by text, type, assessment and group. Renaming a note through Obsidian updates its central binding. If a note was moved and edited while Obsidian was closed, explicitly relink it through **Metadata → Linked note** (**Метаданные → Привязка заметки**); the node ID and relationships remain intact.
+Search and filter the research by text, type, assessment and group. Renaming a note through Obsidian updates its central binding. **Project diagnostics** (**Диагностика проекта**) checks note paths and the registered originals' hashes, lists missing/changed/invalid files and highlights affected nodes in red. Files linked only in Markdown are outside this registered-file check.
+
+If a bound note is missing when opened, choose another vault note or create a new one named after the node. The node ID, attributes and relationships stay intact; creating a replacement does not recover the deleted note's old text. **Metadata → Linked note** (**Метаданные → Привязка заметки**) also supports explicit relinking. Restore an unavailable original from backup and rerun diagnostics; changed original bytes are not silently accepted.
 
 ## Relationships and Groups
 
@@ -18,7 +22,9 @@ Cards become circles below zoom 0.58 and recover their expanded state when you z
 
 ## Any File as Material
 
-Import explicitly selected files, including files outside the vault; the plugin copies them into `Исследования/Вложения/`. Originals are immutable managed copies with SHA-256, and the same material may have independent attachments to documents. Detaching one attachment does not delete an original. A file can be up to **512 MiB**.
+Import explicitly selected files, including files outside the vault; the plugin copies them into `TWData/projects/<stable research folder>/`, grouped into `images`, `video`, `audio`, `documents`, `archives` or `other`. **Settings → TraceWeave → Data folder** changes the visible `TWData` parent. Research folders retain their names after a graph-title edit, and duplicate names receive numbered suffixes. File names keep a readable part of the original name plus a collision-safe identifier.
+
+Originals are immutable managed copies with SHA-256, and the same material may have independent attachments to documents. Detaching one attachment does not delete an original. A file can be up to **512 MiB**. Notes created for nodes use Obsidian's new-note location rather than the attachments folder.
 
 | Material | Available behavior |
 |---|---|
@@ -34,6 +40,6 @@ Import explicitly selected files, including files outside the vault; the plugin 
 
 Vault wikilinks, local Markdown links and embeds resolve from the source note's path. Supported local images and media are previewed; embedded notes lead to the native editor instead of recursively rendering the vault. Remote images are not fetched automatically. Merely linking a file does not register it in the material library or add it to backup ZIPs/internal snapshots. **Export report** also copies resolvable local file links into its separate readable folder.
 
-Internal report snapshots capture explicit documents, their connecting relationships and registered attached materials. Later edits do not change the snapshot. The report view is read-only; large reports above the **16 MiB preview limit** remain stored in full and can be revealed in the file manager. Captured snapshot PDFs and other files are revealed there; visible source PDFs still open natively.
+Report snapshots capture explicit documents, their connecting relationships and registered attached materials. New captures live under the configured data folder's `exports/<stable research folder>/snapshots/`; historical captures stay in their original locations. Later edits do not change a snapshot. Its plugin view is read-only; reports above the **16 MiB preview limit** remain stored in full and can be revealed in the file manager. Captured snapshot PDFs and other files are revealed there; visible source PDFs still open natively.
 
 [Backup and import/export](backup-import.md) · [Data and security](data-and-security.md) · [Documentation](index.md)

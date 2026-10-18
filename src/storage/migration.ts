@@ -25,6 +25,16 @@ const mapped = (value: string): string => {
   return value;
 };
 async function exists(root: string, relative: string): Promise<boolean> { try { await fs.lstat(await resolveSafe(root, relative)); return true; } catch (error) { if (missing(error)) return false; throw error; } }
+/** TWData is now a visible user folder; only actual old service files activate migration. */
+async function hasLegacyMetadata(root: string): Promise<boolean> {
+  if (!await exists(root, OLD)) return false;
+  for (const name of ['settings.json', 'migration.json', 'writer.lock']) if (await exists(root, `${OLD}/${name}`)) return true;
+  if (!await exists(root, `${OLD}/projects`)) return false;
+  for (const entry of await fs.readdir(await resolveSafe(root, `${OLD}/projects`), { withFileTypes: true })) {
+    if (/^[a-f0-9-]{36}$/u.test(entry.name) && await exists(root, `${OLD}/projects/${entry.name}/state.json`)) return true;
+  }
+  return false;
+}
 async function readUTF8(root: string, relative: string): Promise<string> {
   const absolute = await resolveSafe(root, relative), stat = await fs.lstat(absolute); if (!stat.isFile() || stat.size > 201_326_592) throw new DomainError('migration_limit',t('Файл переноса превышает безопасный лимит чтения.', "A migration file exceeds the safe reading limit."));
   return new TextDecoder('utf-8',{fatal:true,ignoreBOM:true}).decode(await fs.readFile(absolute));
@@ -71,10 +81,10 @@ export async function migrateLegacyVault(root: string, options: { fault?: (point
   safeRelative(DATA_ROOT, options.configDir); if (options.configDir && isConfigurationPath(options.configDir, DATA_ROOT)) throw new DomainError('migration', t('Папки метаданных и настроек не должны пересекаться.', 'The metadata and configuration folders must not overlap.')); safeRelative(OLD, options.configDir); const marker = await loadMarker(root, options.configDir);
   if(marker){await migrateHidden(root,marker,options);return;}
   if(await exists(root,LEGACY_METADATA_ROOT) || await exists(root,`${OLD}/migration.json`))await migrateToTWData(root, { configDir: options.configDir });
-  if(await exists(root,OLD))await migrateHidden(root,null,options);
+  if(await hasLegacyMetadata(root))await migrateHidden(root,null,options);
 }
 async function migrateHidden(root: string, marker: Marker|null, options: { fault?: (point: MigrationFaultPoint)=>void; configDir?: string }): Promise<void> {
-  if(marker?.phase==='complete'){if(await exists(root,OLD) || await exists(root,LEGACY_METADATA_ROOT))throw new DomainError('migration_conflict',t('После переноса вновь появилась старая папка данных. Автоматическое объединение запрещено.', "The legacy data folder reappeared after migration. Automatic merging is forbidden."));return;}
+  if(marker?.phase==='complete'){if(await hasLegacyMetadata(root) || await exists(root,LEGACY_METADATA_ROOT))throw new DomainError('migration_conflict',t('После переноса вновь появилась старая папка данных. Автоматическое объединение запрещено.', "The legacy data folder reappeared after migration. Automatic merging is forbidden."));return;}
   if(!await exists(root,OLD)){
     if(!marker || marker.phase!=='published' || !await exists(root,marker.retainedRoot))throw new DomainError('migration_conflict',t('Исходная папка переноса недоступна.', "The migration source folder is unavailable."));
     for(const move of [...marker.moves,...marker.prepared])await verify(root,move.to,move);marker.phase='complete';await atomic(root,MARKER,stableJSON(marker));return;

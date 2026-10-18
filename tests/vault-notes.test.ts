@@ -7,12 +7,22 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { LocalWorkbench, type Host } from '../src/service';
 import { ProjectRepository, digest, METADATA_ROOT } from '../src/storage/repository';
-import { NOTES_ROOT, RESOURCES_ROOT } from '../src/storage/layout';
+import { RESOURCES_ROOT } from '../src/storage/layout';
 import type { Project, Relation } from '../src/types';
 
 class VaultNotesHost implements Host {
   readonly opened: string[] = [];
+  readonly created: string[] = [];
   constructor(readonly root: string) {}
+  async createNote(title: string): Promise<string> {
+    await fs.mkdir(path.join(this.root, 'Notes'), { recursive: true });
+    const base = title.replace(/[<>:"/\\|?*#]/gu, '-');
+    for (let index = 1; ; index++) {
+      const relative = `Notes/${base}${index === 1 ? '' : ` (${index})`}.md`;
+      try { await fs.writeFile(path.join(this.root, relative), '', { flag: 'wx' }); this.created.push(relative); return relative; }
+      catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error; }
+    }
+  }
   listNotes(): { path: string; title: string }[] {
     const notes: { path: string; title: string }[] = [];
     const walk = (relative: string) => {
@@ -133,11 +143,56 @@ test('outside-filesystem note paths and symlink targets cannot be adopted as vau
 
 test('picker includes ordinary folders and managed notes while excluding metadata, reports and resource Markdown', async t => {
   const { root, service } = await withVault(t), id = await service.createNote('Новая обычная заметка'), managed = current(service).nodes.find(node => node.id === id)!;
-  assert.ok(managed.notePath.startsWith(NOTES_ROOT + '/'));
+  assert.equal(managed.notePath, 'Notes/Новая обычная заметка.md');
   await fs.mkdir(path.join(root, METADATA_ROOT, 'projects/internal/reports'), { recursive: true }); await fs.writeFile(path.join(root, METADATA_ROOT, 'projects/internal/reports/report.md'), 'Technical report');
   await fs.mkdir(path.join(root, RESOURCES_ROOT), { recursive: true }); await fs.writeFile(path.join(root, RESOURCES_ROOT, 'original.md'), 'Original material');
   await fs.mkdir(path.join(root, '_TraceWeave'), { recursive: true }); await fs.writeFile(path.join(root, '_TraceWeave/old-report.md'), 'Legacy technical file');
   await fs.mkdir(path.join(root, 'Inbox'), { recursive: true }); await fs.writeFile(path.join(root, 'Inbox/Входящая.md'), 'User note');
+  for (const relative of ['TWData/projects/Исследование/documents/original.md', 'TWData/exports/Исследование/summary.md', 'TWData/resources/legacy/original.md']) { await fs.mkdir(path.dirname(path.join(root, relative)), { recursive: true }); await fs.writeFile(path.join(root, relative), 'Visible file that is not a graph note'); }
   const notes = service.listNotes(); assert.ok(notes.some(note => note.path === managed.notePath)); assert.ok(notes.some(note => note.path === 'Inbox/Входящая.md'));
-  assert.ok(notes.every(note => !note.path.startsWith(METADATA_ROOT + '/') && !note.path.startsWith(RESOURCES_ROOT + '/') && !note.path.startsWith('_TraceWeave/')));
+  assert.ok(notes.every(note => !note.path.startsWith(METADATA_ROOT + '/') && !note.path.startsWith(RESOURCES_ROOT + '/') && !note.path.startsWith('_TraceWeave/') && !note.path.startsWith('TWData/')));
+});
+
+test('new node creation uses the ordinary host note and stores its title, type and graph metadata separately', async t => {
+  const { root, host, service } = await withVault(t), type = current(service).nodeTypes.find(item => item.code === 'person')!;
+  const id = await service.createNote('Новый человек', type.id), node = current(service).nodes.find(item => item.id === id)!;
+  assert.equal(node.notePath, 'Notes/Новый человек.md'); assert.deepEqual(host.created, [node.notePath]);
+  assert.equal(node.title, 'Новый человек'); assert.equal(node.typeId, type.id); assert.equal(node.noteHash, digest(''));
+  const otherPath = 'Existing.md', body = '\uFEFF---\r\ncustom: true\r\n---\r\n[[Notes/Новый человек]]\r\n![Local](media/picture.png)\r\n';
+  await fs.writeFile(path.join(root, otherPath), body);
+  await service.adoptNote(otherPath, 'Название узла отличается от имени файла', type.id);
+  const other = current(service).nodes.find(item => item.notePath === otherPath)!;
+  assert.equal(other.title, 'Название узла отличается от имени файла'); assert.equal(other.typeId, type.id);
+  const link = relation(id, other.id), attribute = { id: randomUUID(), key: 'Исследовательский атрибут', valueType: 'text' as const, value: 'Только в метаданных', sortOrder: 0 };
+  await service.execute([{ kind: 'relation.create', relation: link }, { kind: 'node.update', nodeId: id, changes: { attributes: [attribute], iconEmoji: '🧩' } }]);
+  assert.equal(await fs.readFile(path.join(root, node.notePath), 'utf8'), '');
+  assert.deepEqual(await fs.readFile(path.join(root, otherPath)), Buffer.from(body));
+  assert.deepEqual((await tree(root)).filter(name => !name.startsWith(`${METADATA_ROOT}/`)), ['Existing.md', 'Notes/Новый человек.md']);
+  assert.equal(await service.openNote(id), 'opened'); assert.deepEqual(host.opened, [node.notePath]);
+  const stored = await service.repository.read(current(service).id);
+  assert.deepEqual(stored.nodes.find(item => item.id === id)!.attributes, [attribute]); assert.deepEqual(stored.relations, [link]);
+  assert.deepEqual((await service.diagnoseProject()).notes.map(item => item.status), ['ok', 'ok']);
+});
+
+test('a native note can be edited, renamed, deleted and recreated without replacing its node or relationships', async t => {
+  const { root, host, service } = await withVault(t), id = await service.createNote('Нативная заметка');
+  await fs.writeFile(path.join(root, 'Other.md'), 'Original other note'); await service.adoptNote('Other.md');
+  const other = current(service).nodes.find(item => item.id !== id)!, link = relation(id, other.id);
+  const attribute = { id: randomUUID(), key: 'Год', valueType: 'number' as const, value: 1967, sortOrder: 0 };
+  await service.execute([{ kind: 'relation.create', relation: link }, { kind: 'node.update', nodeId: id, changes: { attributes: [attribute], assessment: 'confirmed_by_user', iconEmoji: '🧩' } }]);
+  const before = structuredClone(current(service).nodes.find(item => item.id === id)!);
+  const text = '---\nuser_property: unchanged\n---\n[[Other]]\n![Photo](../media/picture.png)\n';
+  await fs.writeFile(path.join(root, before.notePath), text); await service.onFileChanged(before.notePath);
+  await fs.mkdir(path.join(root, 'Archive')); await fs.rename(path.join(root, before.notePath), path.join(root, 'Archive/Renamed.md')); await service.onRenamed('Archive/Renamed.md', before.notePath);
+  assert.equal(await service.readNote(id), text); assert.equal(current(service).nodes.find(item => item.id === id)!.notePath, 'Archive/Renamed.md');
+  await fs.unlink(path.join(root, 'Archive/Renamed.md')); assert.equal(await service.openNote(id), 'missing');
+  assert.ok((await service.diagnoseProject()).affectedNodeIds.includes(id));
+  await service.recreateNote(id);
+  const after = current(service).nodes.find(item => item.id === id)!;
+  assert.equal(after.notePath, 'Notes/Нативная заметка.md'); assert.equal(after.missing, false); assert.equal(after.noteHash, digest(''));
+  for (const key of ['id', 'title', 'typeId', 'createdAt', 'assessment', 'attributes', 'evidence', 'iconEmoji', 'x', 'y', 'zIndex'] as const) assert.deepEqual(after[key], before[key], key);
+  assert.deepEqual(current(service).relations, [link]); assert.deepEqual(host.created, [before.notePath, after.notePath]);
+  assert.equal(await service.openNote(id), 'opened'); assert.equal(host.opened.at(-1), after.notePath);
+  assert.equal(await fs.readFile(path.join(root, 'Other.md'), 'utf8'), 'Original other note');
+  await assert.rejects(service.recreateNote(id), /снова доступна/u); assert.equal(host.created.length, 2);
 });

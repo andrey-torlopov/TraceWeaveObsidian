@@ -68,6 +68,17 @@ test('schema and domain have distinct documented structural and semantic checks'
   assert.ok(schema.description.includes('reference integrity')); assert.ok(schema.description.includes('UTF-8 byte limits'));
 });
 
+test('visible project originals and immutable exports share schema/domain guards without allowing legacy metadata as user files', () => {
+  const original = representative(), snapshotId = original.snapshots[0].id;
+  original.blobs[0].path = 'TWData/projects/Research/documents/Original.txt';
+  original.snapshots[0].path = `TWData/exports/Research/snapshots/${snapshotId}/snapshot.json`;
+  assert.equal(validator(original), true, JSON.stringify(validator.errors)); validateProject(original);
+  for (const value of ['TWData/projects/state.json', `TWData/projects/${original.id}/state.json`, `TWData/projects/${original.id}/reports/snapshot.json`, 'TWData/settings.json', 'TWData/resources/../stolen.bin']) {
+    const invalid = structuredClone(original); invalid.blobs[0].path = value;
+    assert.equal(validator(invalid), false, value); assert.throws(() => validateProject(invalid), { name: 'DomainError' }, value);
+  }
+});
+
 test('journal/history schemas accept real committed transaction and undo records', async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'traceweave-schema-records-')), repo = new ProjectRepository(root);
   try {

@@ -3,10 +3,23 @@ import { constants } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import type { BlobRecord, MediaKind } from '../types';
-import { DATA_ROOT, RESOURCES_ROOT, TRANSITIONAL_METADATA_ROOT, LEGACY_METADATA_ROOT, hasControlCharacters, isConfigurationPath, isAllowedResourcePath } from './layout';
+import { DATA_ROOT, RESOURCES_ROOT, TRANSITIONAL_METADATA_ROOT, LEGACY_METADATA_ROOT, hasControlCharacters, isConfigurationPath, isAllowedResourcePath, isTechnicalPath, safeVisibleName } from './layout';
 
 export const MAX_ORIGINAL_BYTES = 536_870_912;
-export interface CopyOptions { signal?: AbortSignal; onProgress?: (completed: number, total: number) => void; originalName?: string; mimeType?: string }
+export interface CopyOptions { signal?: AbortSignal; onProgress?: (completed: number, total: number) => void; originalName?: string; mimeType?: string; projectFolder?: string }
+export function resourceCategory(value: { mediaKind: MediaKind; mimeType: string }, name: string): string {
+  if (value.mediaKind === 'image') return 'images';
+  if (value.mediaKind === 'video') return 'video';
+  if (value.mediaKind === 'audio') return 'audio';
+  if (/\.(?:zip|tar|gz|tgz|bz2|xz|7z|rar)$/iu.test(name) || /(?:zip|compressed|archive|tar)/iu.test(value.mimeType)) return 'archives';
+  return value.mediaKind === 'text' || /\.(?:pdf|docx?|xlsx?|pptx?|od[tpst]|rtf|csv|epub)$/iu.test(name) ? 'documents' : 'other';
+}
+export function visibleBlobPath(folder: string, blob: Pick<BlobRecord, 'id' | 'mediaKind' | 'mimeType'>, originalName: string, configDir?: string): string {
+  safeRelative(folder, configDir); requireId(blob.id);
+  if (/[?#]/u.test(folder) || isTechnicalPath(folder, configDir) || !isAllowedResourcePath(folder + '/original', false, configDir)) throw new Error('Project files must stay in a visible vault folder');
+  const suffix = safeSuffix(originalName), base = suffix ? originalName.slice(0, -suffix.length) : originalName;
+  return `${folder}/${resourceCategory(blob, originalName)}/${safeVisibleName(base, 'Original')}--${blob.id}${suffix}`;
+}
 export function safeRelative(value: string, configDir?: string): string {
   if (!value || value !== value.normalize('NFC') || value.includes('\\') || hasControlCharacters(value) || value.includes(':') || path.posix.isAbsolute(value) || value.split('/').some(p => !p || p === '.' || p === '..' || p.trim() !== p || /[. ]$/u.test(p)) || isConfigurationPath(value, configDir)) throw new Error('Unsafe relative path');
   return value;
@@ -92,23 +105,26 @@ export async function copyChecked(source: string, destination: string, expected?
   finally { await handle.close(); }
 }
 export class FileStore {
-  constructor(readonly vaultRoot: string, readonly metadataRoot = DATA_ROOT, readonly resourceRoot = RESOURCES_ROOT, readonly configDir?: string) { safeRelative(metadataRoot, configDir); safeRelative(resourceRoot, configDir); const legacy = [TRANSITIONAL_METADATA_ROOT, LEGACY_METADATA_ROOT].includes(metadataRoot), allowed = legacy ? [RESOURCES_ROOT, 'TWData/resources', 'TraceWeave Resources'] : [RESOURCES_ROOT]; if (!isAllowedResourcePath(resourceRoot + "/original", legacy, configDir) || !allowed.some(root => resourceRoot === root || resourceRoot.startsWith(root + '/'))) throw new Error('Resource root must stay within the visible research attachments folder'); }
+  constructor(readonly vaultRoot: string, readonly metadataRoot = DATA_ROOT, readonly resourceRoot = RESOURCES_ROOT, readonly configDir?: string) { safeRelative(metadataRoot, configDir); safeRelative(resourceRoot, configDir); const legacy = [TRANSITIONAL_METADATA_ROOT, LEGACY_METADATA_ROOT].includes(metadataRoot), allowed = legacy ? [RESOURCES_ROOT, 'TWData/resources', 'TraceWeave Resources'] : [RESOURCES_ROOT], visible = !legacy && /\/projects$/u.test(resourceRoot) && !isTechnicalPath(resourceRoot, configDir); if (!isAllowedResourcePath(resourceRoot + "/original", legacy, configDir) || (!visible && !allowed.some(root => resourceRoot === root || resourceRoot.startsWith(root + '/')))) throw new Error('Resource root must stay within the visible research attachments folder'); }
   async resolve(relative: string): Promise<string> { return resolveSafe(this.vaultRoot, relative, false, this.configDir); }
   async importFile(sourcePath: string, projectId: string, knownBlobs: readonly BlobRecord[] = [], options: CopyOptions = {}): Promise<{ blob: BlobRecord; originalName: string }> {
     requireId(projectId); const originalName = (options.originalName ?? path.basename(sourcePath)).normalize('NFC');
     if (!originalName || hasControlCharacters(originalName) || [...originalName].length > 255) throw new Error('Invalid original filename');
-    const id = randomUUID(), relative = `${this.resourceRoot}/${projectId}/${id}/original${safeSuffix(originalName)}`;
+    const id = randomUUID(), mediaHint = options.projectFolder ? await verifiedMediaInfo(sourcePath, originalName) : null;
+    const relative = options.projectFolder ? visibleBlobPath(options.projectFolder, { id, ...mediaHint! }, originalName, this.configDir) : `${this.resourceRoot}/${projectId}/${id}/original${safeSuffix(originalName)}`;
     const destination = await resolveSafe(this.vaultRoot, relative, true, this.configDir);
+    let copied = false;
     try {
       const proof = await copyChecked(sourcePath, destination, undefined, options);
+      copied = true;
       const previous = knownBlobs.find(blob => blob.sha256 === proof.sha256 && blob.byteSize === proof.byteSize);
       if (previous) {
         if (await this.verify(previous, { signal: options.signal }) !== 'ok') throw new Error('Existing original has changed or is unavailable');
-        options.signal?.throwIfAborted(); await fs.rm(path.dirname(destination), { recursive: true, force: true }); return { blob: structuredClone(previous), originalName };
+        options.signal?.throwIfAborted(); if (options.projectFolder) await fs.unlink(destination); else await fs.rm(path.dirname(destination), { recursive: true, force: true }); return { blob: structuredClone(previous), originalName };
       }
       const media = await verifiedMediaInfo(destination, originalName); options.signal?.throwIfAborted();
       return { blob: { id, path: relative, ...proof, ...media }, originalName };
-    } catch (error) { await fs.rm(path.dirname(destination), { recursive: true, force: true }); throw error; }
+    } catch (error) { if (options.projectFolder) { if (copied) await fs.rm(destination, { force: true }); } else await fs.rm(path.dirname(destination), { recursive: true, force: true }); throw error; }
   }
 
   async verify(blob: BlobRecord, options: Pick<CopyOptions, 'signal'> = {}): Promise<'ok' | 'missing' | 'changed'> {

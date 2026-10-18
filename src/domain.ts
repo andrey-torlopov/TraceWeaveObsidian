@@ -2,7 +2,7 @@ import { t } from './i18n';
 import type { Asset, Attribute, BlobRecord, Command, Evidence, ID, NodeChanges, Project, ProjectNode, SearchHit } from './types';
 import { validEmoji } from './emojiSequences';
 import { caseFold } from './casefold';
-import { DATA_ROOT, LEGACY_METADATA_ROOT, TRANSITIONAL_METADATA_ROOT, hasControlCharacters, isAllowedNotePath, isAllowedResourcePath } from './storage/layout';
+import { DATA_ROOT, hasControlCharacters, isAllowedNotePath, isAllowedResourcePath, isAllowedSnapshotPath } from './storage/layout';
 
 export class DomainError extends Error {
   constructor(public readonly code: string, message: string) { super(message); this.name = 'DomainError'; }
@@ -38,6 +38,7 @@ function text(value: unknown, name: string, max: number, min = 0): asserts value
   check(!/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/u.test(value), t(`${name}: неполный Unicode-символ.`, `${name}: incomplete Unicode character.`));
 }
 function label(value: unknown, name: string, max: number): asserts value is string { text(value, name, max, 1); check(value === normalized(value), t(`${name}: требуется NFC без пробелов по краям.`, `${name}: NFC text without leading or trailing spaces is required.`)); }
+export function validateNodeTitle(value: string): string { const title = normalized(value); label(title, 'node.title', 200); return title; }
 function nullableText(value: unknown, name: string, max: number): void { if (value !== null) text(value, name, max); }
 function bytes(value: unknown, name: string, max: number): void { text(value, name, max); check(encoder.encode(value).byteLength <= max, t(`${name}: превышен лимит UTF-8.`, `${name}: UTF-8 byte limit exceeded.`)); }
 function id(value: unknown, name: string): asserts value is ID { check(typeof value === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(value), t(`${name}: требуется UUID в нижнем регистре.`, `${name}: a lowercase UUID is required.`)); }
@@ -227,7 +228,7 @@ export function validateProject(project: Project): void {
   }
   for (const snapshot of project.snapshots) {
     keys(snapshot, ['id', 'title', 'path', 'sourceRevision', 'createdAt', 'assetIds'], 'snapshot'); label(snapshot.title, 'snapshot.title', 200); validateRelativePath(snapshot.path, 'snapshot.path');
-    check([DATA_ROOT, TRANSITIONAL_METADATA_ROOT, LEGACY_METADATA_ROOT].some(root => snapshot.path === `${root}/projects/${project.id}/reports/${snapshot.id}/snapshot.json`), t('Снимок должен находиться в служебной папке проекта.', "Snapshots must stay in the project's metadata folder."), 'unsafe_path'); integer(snapshot.sourceRevision, 'snapshot.sourceRevision', 0, project.revision); timestamp(snapshot.createdAt, 'snapshot.createdAt'); array(snapshot.assetIds, 'snapshot.assetIds'); check(new Set(snapshot.assetIds).size === snapshot.assetIds.length, t('Повтор материала снимка.', "Duplicate snapshot material.")); for (const assetId of snapshot.assetIds) check(assets.has(assetId), t('Отсутствует закреплённый материал снимка.', "A pinned snapshot material is missing."), 'missing_reference');
+    check(isAllowedSnapshotPath(snapshot.path, project.id, snapshot.id), t('Небезопасный путь снимка.', 'Unsafe snapshot path.'), 'unsafe_path'); integer(snapshot.sourceRevision, 'snapshot.sourceRevision', 0, project.revision); timestamp(snapshot.createdAt, 'snapshot.createdAt'); array(snapshot.assetIds, 'snapshot.assetIds'); check(new Set(snapshot.assetIds).size === snapshot.assetIds.length, t('Повтор материала снимка.', "Duplicate snapshot material.")); for (const assetId of snapshot.assetIds) check(assets.has(assetId), t('Отсутствует закреплённый материал снимка.', "A pinned snapshot material is missing."), 'missing_reference');
   }
   metadata(project.receipts, 'receipts'); for (const [operationId, receipt] of Object.entries(project.receipts)) { id(operationId, 'receipt.id'); object(receipt, 'receipt'); keys(receipt, ['hash', 'revision', 'timestamp'], 'receipt'); check(HASH.test(receipt.hash), t('Неверный хеш операции.', "Invalid operation hash.")); integer(receipt.revision, 'receipt.revision', 0, project.revision); timestamp(receipt.timestamp, 'receipt.timestamp'); }
   metadata(project.importedData, 'importedData');

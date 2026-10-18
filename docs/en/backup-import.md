@@ -12,7 +12,7 @@
 | Read research on a phone without TraceWeave | **Export report** (**Экспорт отчёта**) | `summary.md`, `scheme.canvas` and copies of active materials in `Attachments/` |
 | Preserve an internal snapshot at one point in time | **Report snapshot** (**Снимок отчёта**), then **Snapshots** (**Снимки**) | A read-only snapshot of explicit documents, their relationships and attached registered originals |
 
-**Vault backup ZIP** (**Копия vault ZIP**) means a backup of the selected research, despite its name. It is not a filesystem backup of every file in the vault. Save exported ZIPs outside the vault as well: their working location is hidden `.twdata/exports/`, revealed in the file manager after export.
+**Vault backup ZIP** (**Копия vault ZIP**) means a backup of the selected research, despite its name. It is not a filesystem backup of every file in the vault. ZIP exports are saved in the visible `TWData/exports/<stable research folder>/`, or under your configured data folder, and revealed in the file manager. Keep a copy outside the vault as well.
 
 ## Plugin Backup
 
@@ -20,7 +20,7 @@ The plugin writes `traceweave.obsidian-backup/1.0`. It includes the current conf
 
 A file mentioned only by a wikilink, Markdown path or embed is not automatically a registered material. Such arbitrary linked resources are not automatically copied into the backup or internal snapshot. The readable vault report separately resolves local links as described below. Import/register them explicitly when the research must carry them; use a full vault copy for everything.
 
-To restore a portable copy, choose **Import ZIP** (**Импорт ZIP**) and select the archive. The importer checks the archive, schemas, relationships, file sizes and hashes before publishing a new research project. It generates new IDs and updates graph endpoints and registered attachment bindings together. It never merges the copy into an existing research or overwrites the original project.
+To restore a portable copy, choose **Import ZIP** (**Импорт ZIP**) and select the archive. The importer checks the archive, schemas, relationships, file sizes and hashes before publishing a new research project. It generates new IDs and updates graph endpoints and registered attachment bindings together. It never merges the copy into an existing research or overwrites the original project. Imported note payloads become ordinary visible Markdown files under `Исследования/Заметки/<new project ID>/`; this explicit archive import is separate from opening or linking an existing vault note. Originals use the configured `projects/` tree, snapshots use `exports/`, and retained source ZIPs use the project's `archives/` folder.
 
 **Known limitation: ordinary `[[wikilinks]]` and relative Markdown file/image paths are not fully rewritten during ZIP import.** Imported files have new paths, while some text links retain old targets; they may break or refer to source-vault files. Graph relations are remapped separately. Check note links and media after import, especially when moving to another vault. A complete filesystem copy preserves the original vault layout.
 
@@ -36,12 +36,12 @@ Import also accepts the pinned historical archive 1.0 profiles and the old Obsid
 
 ## Readable Report for Desktop and Mobile
 
-1. In **Settings → TraceWeave → Reports folder**, enter a folder path relative to the vault, for example `Reports`. Leave it empty to use the vault root. Click **Save**.
+1. In **Settings → TraceWeave → Data folder**, choose the visible parent relative to the vault. The default is `TWData`; reports go into its `exports/` folder. Click **Save**. This setting also controls registered material folders, while node notes follow Obsidian's own new-note setting.
 2. Open the research and choose **Export report**. The export includes all active nodes, regardless of search filters, selection or collapsed groups. Save note edits and metadata forms first; unsaved form values are outside the export.
 3. Open `summary.md` in the created folder. The plugin opens it automatically. On a phone, open the same file after your sync service has transferred the whole report folder.
 
 ```text
-Research title/
+TWData/exports/Research title/
   summary.md
   scheme.canvas
   Attachments/
@@ -53,7 +53,7 @@ Research title/
     other/
 ```
 
-Only categories with exported files need to contain files. The folder name follows the research title; characters unsupported in filenames are replaced. Repeated exports create `Research title (2)`, `(3)`, and so on. Existing reports and source files are never overwritten.
+Only categories with exported files need to contain files. The folder name follows the current research title; characters unsupported in filenames are replaced. When that destination already exists, including because it contains another export, a new folder `Research title (2)`, `(3)`, and so on is created. Existing reports and source files are never overwritten. Changing the data-folder setting controls future report destinations; existing reports remain where they were created.
 
 `summary.md` combines notes in creation order and shows creation/update dates from node metadata, attributes, relationships, evidence and attachment links. No dates or metadata are inserted into the original notes. Local links to included notes and files are redirected into the report. Code examples retain their literal text. Unavailable sources are reported explicitly; missing required notes or changed registered originals stop export.
 
@@ -65,9 +65,13 @@ The report is stored in a visible folder, so it can travel through your vault's 
 
 ## Reports and Recovery
 
-**Report snapshot** (**Снимок отчёта**) captures the selected nodes, or the explicit active set when no nodes are selected. Later edits do not alter its stored text or originals. **Snapshots** (**Снимки**) opens the saved report in a read-only view. The preview limit is **16 MiB**; a larger valid report is stored completely and **Reveal snapshot file** (**Показать файл снимка**) reveals it in the file manager. Snapshot PDFs and unsupported captured files can also be revealed there.
+**Report snapshot** (**Снимок отчёта**) captures the selected nodes, or the explicit active set when no nodes are selected. New snapshots use `TWData/exports/<stable research folder>/snapshots/<snapshot ID>/` under the configured parent; their JSON, Markdown, integrity record and captured files remain together. Historical snapshots retain their original paths. Later edits do not alter their stored text or originals. **Snapshots** (**Снимки**) opens the saved report in a read-only view. The preview limit is **16 MiB**; a larger valid report is stored completely and **Reveal snapshot file** (**Показать файл снимка**) reveals it in the file manager. Snapshot PDFs and unsupported captured files can also be revealed there.
 
-A report is a result, not a replacement for a restorable project backup. Keep complete backups before upgrades and verify them in a separate vault. Returning from the hidden-data layout to 0.1.0/0.1.1 requires the whole pre-migration vault copy; replacing the plugin binary alone is insufficient.
+A report is a result, not a replacement for a restorable project backup. Keep complete backups before upgrades and verify them in a separate vault. **Downgrading from 0.2.0 to 0.1.6 or older requires the whole pre-upgrade vault copy, including hidden `.twdata/`; replacing the plugin binary alone is insufficient.**
+
+The 0.2.0 upgrade copies valid registered originals into visible type-based folders and updates bindings behind a metadata-history barrier. Old files remain for existing text links; missing or changed originals keep their old paths and appear in **Project diagnostics**. Existing node notes and historical snapshots are not moved by this upgrade.
+
+Changing **Data folder** first prepares verified copies, then applies journaled binding changes and publishes the new folder setting. An interrupted change is resumed from `.twdata/layout-change.json` after repository recovery. Keep the old files and journal until recovery finishes; do not manually combine directory trees. Completed reports are not moved. The plugin does not accept changed original bytes as a new baseline automatically.
 
 ## Import Limits
 

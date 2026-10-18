@@ -4,7 +4,7 @@ import * as path from 'node:path';
 import type { VaultLink } from './types';
 import { resolveSafe, safeRelative, verifiedMediaInfo } from './storage/files';
 import { reportDocumentInfo } from './report-document';
-import { hasControlCharacters, isConfigurationPath } from './storage/layout';
+import { hasControlCharacters, isConfigurationPath, isTechnicalPath } from './storage/layout';
 
 export interface VaultDestination { path: string; basename: string; extension: string }
 export interface VaultLinkHost {
@@ -24,7 +24,8 @@ function allowed(relative: string, sourcePath?: string, configDir?: string): boo
   }
   const parts = relative.toLowerCase().split('/');
   if (parts.some(part => part.startsWith('.') || part === '_traceweave')) return false;
-  return parts[0] !== 'twdata' || ['notes', 'resources'].includes(parts[1] ?? '');
+  // Retain legacy note/resource bridges while sharing the current visible-data policy.
+  return parts[0] === 'twdata' && ['notes', 'resources'].includes(parts[1] ?? '') && parts.length > 2 || !isTechnicalPath(relative, configDir);
 }
 /** Resolve vault files and explicit local paths; a note cannot turn a preview into an OS path or request. */
 export class VaultLinks {
@@ -49,7 +50,8 @@ export class VaultLinks {
       } catch { return null; }
     }
     // Captured originals resolve inside this snapshot, never to a similarly named current vault file.
-    if (target && candidate.startsWith('.twdata/') && this.allowed(candidate, sourcePath)) return { destinations: [{ path: candidate, basename: path.posix.basename(candidate, path.posix.extname(candidate)), extension: path.posix.extname(candidate).slice(1) }], subpath };
+    const sourceReport = reportDocumentInfo(sourcePath);
+    if (target && sourceReport && candidate.startsWith(sourceReport.directory + '/files/') && this.allowed(candidate, sourcePath)) return { destinations: [{ path: candidate, basename: path.posix.basename(candidate, path.posix.extname(candidate)), extension: path.posix.extname(candidate).slice(1) }], subpath };
     const destination = target ? this.host.find(target, rooted ? '' : sourcePath) : this.host.find(sourcePath, '');
     if (destination && !this.allowed(destination.path, sourcePath)) return null;
     const destinations = destination ? [destination] : [];
@@ -81,6 +83,7 @@ export class VaultLinks {
           const media = await verifiedMediaInfo(absolute, file.path);
           const info: VaultLink = { path: file.path, title: file.basename, resourceUrl: this.host.resourceUrl(file.path), ...media, byteSize: stat.size, isNote: file.extension.toLowerCase() === 'md' };
           if (file.path.startsWith('.twdata/')) info.openMode = 'reveal';
+          else if (file.extension.toLowerCase() === 'canvas') info.openMode = 'native';
           return { info, subpath };
         } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
       }
@@ -101,7 +104,7 @@ export class VaultLinks {
     const resolved = await this.locate(sourcePath, raw);
     if (!resolved) throw new Error(t('Ссылка не указывает на доступный файл этого хранилища.', "The link does not point to an available file in this vault."));
     const { info } = resolved;
-    if (info.openMode !== 'reveal' && (info.isNote || info.mimeType === 'application/pdf' || ['image', 'audio', 'video'].includes(info.mediaKind))) await this.host.open(info.path, resolved.subpath);
+    if (info.openMode !== 'reveal' && (info.openMode === 'native' || info.isNote || info.mimeType === 'application/pdf' || ['image', 'audio', 'video'].includes(info.mediaKind))) await this.host.open(info.path, resolved.subpath);
     else await this.host.reveal(info.path);
   }
 }

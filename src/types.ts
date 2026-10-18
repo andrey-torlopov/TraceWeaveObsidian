@@ -39,15 +39,22 @@ export type Command =
  | { kind: 'snapshot.register'; snapshot: SnapshotRecord };
 export interface ProjectSummary { id: ID; title: string; status: Project['status']; revision: number }
 export interface ResourceCandidate { path: string; byteSize: number; registered: boolean }
+export interface ProjectDiagnostics {
+ projectId: ID; checkedAt: string;
+ notes: { nodeId: ID; path: string; status: 'ok' | 'missing' | 'invalid' }[];
+ assets: { assetId: ID; path: string; status: 'ok' | 'missing' | 'changed' | 'invalid' }[];
+ affectedNodeIds: ID[];
+}
 export interface SearchHit { nodeId: ID; field: string; snippet: string }
 export interface VaultLink { path: string; title: string; resourceUrl: string; mimeType: string; mediaKind: MediaKind; byteSize: number; isNote: boolean; openMode?: 'native' | 'reveal' }
-export interface WorkbenchSnapshot { projects: readonly ProjectSummary[]; project: Project | null; busy: boolean; message: string; error: string | null; canUndo: boolean; canRedo: boolean; progress: { name: string; completed: number; total: number } | null }
+export interface WorkbenchSnapshot { projects: readonly ProjectSummary[]; project: Project | null; busy: boolean; message: string; error: string | null; canUndo: boolean; canRedo: boolean; progress: { name: string; completed: number; total: number } | null; diagnostics?: ProjectDiagnostics | null }
 export interface ViewState { mode: 'graph' | 'dossier' | 'materials' | 'trash'; selectedId: ID | null; collapsedGroupIds: ID[]; expandedNodeIds: ID[]; viewport?: { x: number; y: number; zoom: number } }
 export interface WorkbenchService {
  subscribe(listener: () => void): () => void; getSnapshot(): WorkbenchSnapshot;
  createProject(title: string): Promise<void>; openProject(id: ID): Promise<void>; createGroup(title: string, nodeIds: ID[]): Promise<ID>;
  execute(commands: Command[]): Promise<void>; createNote(title: string, typeId?: ID): Promise<ID>;
- adoptNote(path: string): Promise<void>; openNote(nodeId: ID): Promise<void>; readNote(nodeId: ID): Promise<string>;
+ adoptNote(path: string, title?: string, typeId?: ID): Promise<void>; openNote(nodeId: ID): Promise<'opened' | 'missing'>; readNote(nodeId: ID): Promise<string>;
+ recreateNote(nodeId: ID): Promise<void>; diagnoseProject(): Promise<ProjectDiagnostics>;
  relinkNote(nodeId: ID, path: string): Promise<void>; listNotes(): readonly { path: string; title: string }[];
  resolveVaultLink(sourcePath: string, link: string): Promise<VaultLink | null>; openVaultLink(sourcePath: string, link: string): Promise<void>;
  importFiles(files: File[], nodeId?: ID): Promise<void>; cancelImport(): void;

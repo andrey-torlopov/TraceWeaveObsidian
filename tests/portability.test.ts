@@ -34,6 +34,38 @@ test('immutable report captures text and pins bytes after notes and source origi
 
 test('complete plugin backup imports new UUID project and resources; rollback only owns new files',async t=>{const {root,project:base,blob}=await assetFixture(t);const snapshot=await createReport(root,base,'Saved report'),project=applyCommands(base,[{kind:'snapshot.register',snapshot}]);const archive=path.join(root,'backup.zip');await exportProject(root,project,archive);const target=await fs.mkdtemp(path.join(os.tmpdir(),'tw-target-'));t.after(()=>fs.rm(target,{recursive:true,force:true}));await fs.writeFile(path.join(target,'existing.md'),'Do not change');const staged=await stageImport(target,archive);assert.notEqual(staged.project.id,project.id);assert.notEqual(staged.project.nodes[0]!.id,project.nodes[0]!.id);assert.equal(staged.project.nodes[0]!.notePath.includes(staged.project.id),true);await assert.rejects(fs.stat(path.join(target,staged.project.nodes[0]!.notePath)));await staged.commit();assert.equal((await digestFile(path.join(target,staged.project.blobs[0]!.path))).sha256,blob.sha256);assert.equal((await fs.readFile(path.join(target,staged.project.nodes[0]!.notePath),'utf8')).includes('author: Original'),true);assert.ok(await fs.stat(path.join(target,staged.project.snapshots[0]!.path)));await verifyReport(target,staged.project.snapshots[0]!);await staged.rollback();assert.equal(await fs.readFile(path.join(target,'existing.md'),'utf8'),'Do not change');await assert.rejects(fs.stat(path.join(target,staged.project.nodes[0]!.notePath)));});
 
+test('visible immutable snapshots and originals round-trip through both archive profiles without new hidden user files', async t => {
+  const { root, project: base } = await assetFixture(t), snapshot = await createReport(root, base, 'Visible capture', undefined, DATA_ROOT, 'TWData/exports/Research');
+  assert.ok(snapshot.path.startsWith('TWData/exports/Research/snapshots/'));
+  const project = applyCommands(base, [{ kind: 'snapshot.register', snapshot }]); await verifyReport(root, snapshot);
+  for (const [name, writer] of [['backup', exportProject], ['archive', exportTraceWeaveArchive]] as const) {
+    const output = path.join(root, name + '-visible.zip'); await writer(root, project, output);
+    const imported = await stageImport(root, output, DATA_ROOT, { projectFolder: async p => `TWData/projects/${name}-${p.id}`, reportsFolder: async p => `TWData/exports/${name}-${p.id}` });
+    try {
+      assert.ok(imported.project.blobs.every(blob => blob.path.startsWith('TWData/projects/')));
+      assert.ok(imported.project.snapshots.every(report => report.path.startsWith('TWData/exports/')));
+      assert.ok(imported.project.nodes.every(node => !node.notePath.startsWith('.')));
+      await imported.commit(); await verifyReport(root, imported.project.snapshots[0]!);
+      const again = path.join(root, name + '-visible-again.zip'); await exportProject(root, imported.project, again);
+      const repeated = await stageImport(root, again); try { await repeated.commit(); await verifyReport(root, repeated.project.snapshots[0]!); } finally { await repeated.rollback(); }
+    } finally { await imported.rollback(); }
+  }
+});
+
+test('retained legacy archive sources move into visible project archives on import and remain backup-compatible', async t => {
+  const { root, project } = await fixture(t), body = Buffer.from('Opaque retained archive bytes'), retained = `${DATA_ROOT}/projects/${project.id}/sources/legacy-export.zip`;
+  await fs.mkdir(path.dirname(path.join(root, retained)), { recursive: true }); await fs.writeFile(path.join(root, retained), body);
+  project.importedData.retainedSource = { path: retained, sha256: sha(body), byteSize: body.length };
+  const archive = path.join(root, 'retained-original.zip'); await exportProject(root, project, archive);
+  const imported = await stageImport(root, archive, DATA_ROOT, { projectFolder: async p => `TWData/projects/Retained-${p.id}` });
+  try {
+    const source = imported.project.importedData.retainedSource as { path: string }; assert.ok(source.path.startsWith('TWData/projects/')); assert.ok(source.path.endsWith(`/archives/source-${sha(body)}.zip`));
+    await imported.commit(); assert.deepEqual(await fs.readFile(path.join(root, source.path)), body);
+    const again = path.join(root, 'retained-visible-again.zip'); await exportProject(root, imported.project, again);
+    const repeated = await stageImport(root, again); try { await repeated.commit(); assert.deepEqual(await fs.readFile(path.join(root, (repeated.project.importedData.retainedSource as { path: string }).path)), body); } finally { await repeated.rollback(); }
+  } finally { await imported.rollback(); }
+});
+
 test('strict JSON duplicate keys and ZIP proof tampering reject before notes are created',async t=>{const {root,project}=await fixture(t);assert.throws(()=>strictJSON('{"a":1,"a":2}'));assert.throws(()=>strictJSON('{/*comment*/"a":1}'));const text=JSON.stringify(project),manifest={format:'traceweave.obsidian-backup',formatVersion:'1.0',requiredFeatures:['centralized-metadata.v1'],sourceProjectId:project.id,sourceRevision:project.revision,files:[{path:'project.json',kind:'project',sha256:'0'.repeat(64),byteSize:Buffer.byteLength(text)}]};const zip=await zipBuffers(root,{'project.json':text,'manifest.json':JSON.stringify(manifest)});await assert.rejects(stageImport(root,zip),/hash\/size/);assert.deepEqual(await fs.readdir(path.join(root,'Notes')),['Source.md']);});
 
 test('ZIP case collision, unix symlink, CRC tamper and traversal reject',async t=>{const {root}=await fixture(t);const dup=await zipBuffers(root,{'project.json':'{}','PROJECT.JSON':'{}','manifest.json':'{}'});await assert.rejects(stageImport(root,dup),/Duplicate ZIP/);const valid=await zipBuffers(root,{'project.json':'project sentinel','manifest.json':'{}'});const bytes=await fs.readFile(valid),offset=bytes.indexOf(Buffer.from('project sentinel'));assert.ok(offset>0);bytes[offset]=bytes[offset]!^1;await fs.writeFile(valid,bytes);await assert.rejects(stageImport(root,valid),/CRC/);

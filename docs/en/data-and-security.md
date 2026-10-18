@@ -8,21 +8,24 @@ All research data lives in the selected vault. Existing connected notes stay in 
 
 ```text
 Vault/
-  existing notes and folders
-  Исследования/
-    Заметки/          new Markdown documents
-    Вложения/        managed original files
-  .twdata/           relationships, metadata and recovery data
-    projects/        project JSON, history, drafts and report snapshots
+  ordinary notes and folders
+  TWData/                          configurable visible data folder
+    projects/<research folder>/    registered originals by media type
+    exports/<research folder>/     readable reports, ZIPs and snapshots
+  .twdata/                         technical data, not a note editor
+    projects/                      project JSON, history, journals and drafts
     settings.json
     imports/
-    exports/
     recovery/
 ```
 
-`.twdata/` is a hidden service folder, not a temporary cache. It holds identities, relationships, attributes, file bindings, coordinates, history and snapshots. Notes receive no service YAML fields or adjacent JSON sidecars. Obsidian's normal file explorer and native editor use the visible notes and originals; the plugin reads hidden service data itself.
+Existing node notes stay in their folders. New notes follow Obsidian's configured new-note location; choosing an existing note does not duplicate it. **Settings → TraceWeave → Data folder** controls visible materials and exports only. Project folder names are stable after renaming a research project; collisions receive numbered suffixes.
 
-Do not delete `.twdata/` or expose managed paths through symlinks. Uninstalling the plugin does not remove research files. Technical details and old-layout migration are described in the [storage protocol, in Russian](../storage.md).
+`.twdata/` is a hidden service folder, not a temporary cache. It holds identities, relationships, attributes, file bindings, coordinates, history, settings, technical staging and recovery records. Notes receive no service YAML fields or adjacent JSON sidecars. Their current text is read from the bound vault file. Historical journals/recovery copies can contain past text, and old immutable snapshots/source ZIPs remain where earlier versions saved them; these are preserved history rather than a second current note. New snapshots and retained import sources use the visible data tree.
+
+When upgrading to 0.2.0, valid registered originals are copied into the visible project folders with the same bytes and hashes. Previous files remain for existing note links. Missing or changed originals retain their old bindings for diagnostics. Node notes are not moved. Changing the data-folder setting similarly copies originals and updates their bindings; completed reports and historical snapshots stay where they were created. The folder-change journal is retained until recovery completes if the process is interrupted.
+
+Do not delete `.twdata/` or expose managed paths through symlinks. Uninstalling the plugin does not remove research files. **Returning to 0.1.6 after upgrading requires a full pre-upgrade vault copy, including hidden metadata; reinstalling the older binary alone is insufficient.** Technical details and old-layout migration are described in the [storage protocol, in Russian](../storage.md).
 
 ## What Leaves the Computer
 

@@ -9,7 +9,6 @@ import { Window } from 'happy-dom';
 import { getLocale, localeCode, setLocale } from '../src/i18n';
 import { LocalWorkbench, type Host } from '../src/service';
 import { ProjectRepository } from '../src/storage/repository';
-import { NOTES_ROOT } from '../src/storage/layout';
 import { VaultNotePicker } from '../src/ui/VaultNotePicker';
 import { SafeMarkdown } from '../src/ui/markdown';
 import { mountReportPreview } from '../src/ui/report';
@@ -94,7 +93,7 @@ for (const language of ['en', 'ru'] as const) {
   test(`${language}: service localizes notifications and errors without translating managed paths or user titles`, async t => {
     useLocale(t, language);
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'traceweave-locale-'));
-    const host: Host = { listNotes: () => [], openNote: async () => {}, showFile: async () => {}, resourceUrl: relative => `app://vault/${relative}`, filePath: async () => { throw new Error('No uploads in this fixture'); } };
+    const host: Host = { listNotes: () => [], createNote: async title => { const relative = `Notes/${title}.md`; await fs.mkdir(path.join(root, 'Notes'), { recursive: true }); await fs.writeFile(path.join(root, relative), '', { flag: 'wx' }); return relative; }, openNote: async () => {}, showFile: async () => {}, resourceUrl: relative => `app://vault/${relative}`, filePath: async () => { throw new Error('No uploads in this fixture'); } };
     const service = new LocalWorkbench(new ProjectRepository(root), host);
     t.after(async () => { await service.dispose(); await fs.rm(root, { recursive: true, force: true }); });
     await service.initialize();
@@ -103,7 +102,7 @@ for (const language of ['en', 'ru'] as const) {
     assert.equal(service.getSnapshot().project?.title, 'Моё исследование');
     assert.equal(service.getSnapshot().message, english ? 'Research project created. Notes remain ordinary Markdown files.' : 'Исследование создано. Заметки остаются обычными Markdown-файлами.');
     const id = await service.createNote('Моя заметка'), note = service.getSnapshot().project!.nodes.find(node => node.id === id)!;
-    assert.equal(note.title, 'Моя заметка'); assert.ok(note.notePath.startsWith(`${NOTES_ROOT}/`));
+    assert.equal(note.title, 'Моя заметка'); assert.equal(note.notePath, 'Notes/Моя заметка.md');
     assert.equal(service.getSnapshot().message, english ? 'Note created. Edit its text in the native editor.' : 'Заметка создана. Текст редактируется в штатном редакторе.');
     await assert.rejects(service.openNote('missing'), error => error instanceof Error && error.message === (english ? 'Document not found.' : 'Документ не найден.'));
     await assert.rejects(service.execute([{ kind: 'node.update', nodeId: 'missing', changes: { title: 'Rejected' } }]));

@@ -42,15 +42,19 @@ Do not copy `node_modules`, your research data or the source tree into the plugi
 
 ## Interface Language
 
-TraceWeave **0.1.4** supports English and Russian interfaces.
+TraceWeave **0.2.0** supports English and Russian interfaces.
 
-In 0.1.4, TraceWeave follows Obsidian's language: Russian for Russian, English for other languages. Choose **Settings → TraceWeave → Interface language** to use **Automatic**, **Русский** or **English** independently. Switching the interface preserves research content and drafts; visible note and attachment paths remain unchanged.
+In 0.2.0, TraceWeave follows Obsidian's language: Russian for Russian, English for other languages. Choose **Settings → TraceWeave → Interface language** to use **Automatic**, **Русский** or **English** independently. Switching the interface preserves research content and drafts; visible note and attachment paths remain unchanged.
 
 ## Updating and Uninstalling
 
 Save edits, stop other writers and make a full filesystem copy of the closed vault, including hidden `.twdata/`, before an update. Update through your installation channel; when copying assets manually, replace the three compiled files. **Fully restart Obsidian after a plugin update.** Toggling the plugin alone is insufficient for the tested reload path.
 
-Updating from 0.1.0/0.1.1 migrates service data into `.twdata/` and managed notes/files into visible `Исследования/` folders. Existing notes adopted elsewhere remain in place. Let the plugin perform the migration; do not rename old folders or remove its migration marker. See the [storage protocol](../storage.md). Returning to an old layout requires restoring the full pre-update vault backup.
+Version 0.2.0 uses ordinary vault notes and visible `TWData/projects/` and `TWData/exports/` folders. Existing node notes stay at their current paths. Valid registered originals are copied into the new type-based folders; previous files remain for existing links. Missing or changed originals keep their previous bindings and can be inspected with **Project diagnostics**. Migrating file bindings adds a metadata-history barrier, so undo/redo does not cross that move.
+
+Very old 0.1.0/0.1.1 vaults first complete their historical service-folder migration. Do not rename old folders or delete migration journals. A new visible `TWData/projects/` tree is distinct from the old technical `TWData` layout. See the [storage protocol](../storage.md).
+
+**Downgrading from 0.2.0 to 0.1.6 or older requires the full pre-upgrade vault backup, including hidden `.twdata/`. Replacing the plugin binary alone does not restore compatible paths and settings.**
 
 Disabling or uninstalling the plugin leaves your notes, originals and `.twdata/` on disk. Keep `.twdata/`: the graph's relationships and attributes cannot be reconstructed from Markdown alone.
 

@@ -8,7 +8,7 @@ import { pipeline } from 'node:stream/promises';
 import * as yauzl from 'yauzl';
 import * as yazl from 'yazl';
 import { obsidianProject, archiveManifest, archiveProject, archiveSnapshot, archivePresentation, archiveOrigin, legacyInitialManifest, legacyInitialProject, legacyModernManifest, legacyModernProject } from './generated/validators';
-import { DATA_ROOT, NOTES_ROOT, RESOURCES_ROOT, LEGACY_METADATA_ROOT, TRANSITIONAL_METADATA_ROOT } from './storage/layout';
+import { DATA_ROOT, NOTES_ROOT, RESOURCES_ROOT, LEGACY_METADATA_ROOT, TRANSITIONAL_METADATA_ROOT, isAllowedResourcePath, isAllowedSnapshotPath } from './storage/layout';
 import pluginManifest from '../manifest.json';
 import type { ValidateFunction } from 'ajv';
 import type { ArchiveProject, ArchiveReportDefinition, ArchiveReportSnapshot, ArchiveReportSnapshotAsset, ArchiveSnapshotContent, ArchiveOrigin, ArchiveManifest, ArchivePresentation } from './archive-types';
@@ -16,7 +16,7 @@ import { parse, visit, type ParseError } from 'jsonc-parser';
 import archiveIndex from '../contracts/archive-index.json';
 import { validateProject } from './domain';
 import type { Project, ProjectNode, Relation, Evidence, SnapshotRecord, BlobRecord, Asset, NodeType, Attachment } from './types';
-import { copyChecked, digestFile, resolveSafe, safeRelative, safeSuffix, verifiedMediaInfo, MAX_ORIGINAL_BYTES } from './storage/files';
+import { copyChecked, digestFile, resolveSafe, safeRelative, safeSuffix, verifiedMediaInfo, visibleBlobPath, MAX_ORIGINAL_BYTES } from './storage/files';
 
 const MAX_ENTRIES = 50_000, MAX_ARCHIVE = 10_737_418_240, MAX_TOTAL = 21_474_836_480;
 const HASH = /^[a-f0-9]{64}$/u, UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/u;
@@ -29,6 +29,7 @@ interface Proof { path: string; sha256: string; byteSize: number }
 interface BundleFile extends Proof { kind: 'project' | 'note' | 'blob' | 'snapshot' | 'report' | 'source'; originalPath?: string }
 interface Extracted { absolute: string; proof: Proof }
 export interface StagedImport { project: Project; commit(): Promise<void>; rollback(): Promise<void> }
+export interface StagedImportOptions { projectFolder?: (project: Project) => Promise<string>; reportsFolder?: (project: Project) => Promise<string> }
 const hash = (bytes: string | Buffer) => createHash('sha256').update(bytes).digest('hex');
 const stringify = (value: unknown) => JSON.stringify(value, null, 2) + '\n';
 
@@ -103,6 +104,10 @@ function importManifest(value: unknown): ImportManifest {
 function backupFiles(files: ImportFile[]): BundleFile[] { return files.map(file => { if (file.kind === undefined) throw new Error('Invalid backup payload kind'); return { ...file, kind: file.kind }; }); }
 function projectJSON(value: unknown): Project { const project = value as Project; validateProject(project); return project; }
 function retainedSource(value: unknown): (ObjectJSON & Proof) | undefined { if (value === undefined) return undefined; return { ...objectJSON(value), ...proofJSON(value) }; }
+function retainedPathAllowed(value: string, projectId: string): boolean {
+  safeRelative(value);
+  return metadataRoots.some(root => value.startsWith(`${root}/projects/${projectId}/sources/`)) || (isAllowedResourcePath(value) && value.includes('/projects/') && /\/archives\/source-[a-f0-9]{64}\.zip$/u.test(value));
+}
 function validateProofs(manifest: ImportManifest, entries: Map<string, Extracted>): void {
   const listed = new Set<string>();
   for (const item of manifest.files) {
@@ -131,10 +136,10 @@ export async function exportProject(vaultRoot: string, project: Project, outputP
     else if (stat.isFile()) await add(relative, relative.endsWith('/snapshot.json') ? 'snapshot' : 'report'); else throw new Error('Unsupported report file');
   }
   for (const snapshot of copy.snapshots) {
-    const prefix = `${metadataRoot}/projects/${copy.id}/reports/`; if (!snapshot.path.startsWith(prefix) || !snapshot.path.endsWith('/snapshot.json')) throw new Error('Invalid report path');
+    if (!isAllowedSnapshotPath(snapshot.path, copy.id, snapshot.id)) throw new Error('Invalid report path');
     await verifyReport(vaultRoot,snapshot); await addTree(path.posix.dirname(snapshot.path));
   }
-  const retained=retainedSource(copy.importedData.retainedSource);if(retained){if(typeof retained.path!=='string'||!retained.path.startsWith(`${metadataRoot}/projects/${copy.id}/sources/`))throw new Error('Invalid retained source path');await add(retained.path,'source',retained);}
+  const retained=retainedSource(copy.importedData.retainedSource);if(retained){if(!retainedPathAllowed(retained.path,copy.id))throw new Error('Invalid retained source path');await add(retained.path,'source',retained);}
   const projectData = Buffer.from(stringify(copy)); if(projectData.length>67_108_864)throw new Error('Project JSON byte limit'); files.unshift({ data: projectData, entry: { path: 'project.json', kind: 'project', byteSize: projectData.length, sha256: hash(projectData) } });
   if (files.length + 1 > MAX_ENTRIES || files.reduce((sum, f) => sum + f.entry.byteSize, 0) > MAX_TOTAL) throw new Error('Export archive limit');
   const manifest = { format: 'traceweave.obsidian-backup', formatVersion: '1.0', requiredFeatures: ['centralized-metadata.v1'], sourceProjectId: copy.id, sourceRevision: copy.revision, exportedAt: new Date().toISOString(), files: files.map(f => f.entry) };
@@ -251,13 +256,28 @@ function validateArchiveReferences(raw: ArchiveProject): void {
 
 }
 
-export async function stageImport(vaultRoot: string, zipPath: string, metadataRoot = DATA_ROOT): Promise<StagedImport> {
+export async function stageImport(vaultRoot: string, zipPath: string, metadataRoot = DATA_ROOT, options: StagedImportOptions = {}): Promise<StagedImport> {
   safeRelative(metadataRoot);
   const operation = randomUUID(), stagingRelative = `${metadataRoot}/imports/${operation}`;
   const staging = path.dirname(await resolveSafe(vaultRoot, `${stagingRelative}/staging-file`, true));
   const extractedRoot = path.join(staging, 'extracted'); await fs.mkdir(extractedRoot);
   const planned: { source: string; target: string; proof: { sha256: string; byteSize: number } }[] = [], created: { absolute: string; proof: { sha256: string; byteSize: number } }[] = [];
   let committed = false;
+  let visibleFolder: string | undefined;
+  const projectFolder = async (project: Project): Promise<string | undefined> => {
+    if (visibleFolder === undefined && options.projectFolder) { visibleFolder = await options.projectFolder(project); safeRelative(visibleFolder); if (!isAllowedResourcePath(visibleFolder + '/original')) throw new Error('Invalid visible import folder'); }
+    return visibleFolder;
+  };
+  const snapshotDirectory = async (project: Project, id: string): Promise<string> => {
+    if (!options.reportsFolder) return `${metadataRoot}/projects/${project.id}/reports/${id}`;
+    const parent = await options.reportsFolder(project), relative = `${parent}/snapshots/${id}`; safeRelative(relative);
+    if (!isAllowedSnapshotPath(relative + '/snapshot.json', project.id, id)) throw new Error('Invalid visible snapshot folder');
+    return relative;
+  };
+  const retainedPath = async (project: Project, sha256: string): Promise<string> => {
+    const folder = await projectFolder(project);
+    return folder ? `${folder}/archives/source-${sha256}.zip` : `${metadataRoot}/projects/${project.id}/sources/legacy-export.zip`;
+  };
   try {
     const zipProof=await digestFile(zipPath,{},MAX_ARCHIVE);let entries = await extractZIP(zipPath, extractedRoot);const warnings:string[]=[];let originalSource: {sha256:string;byteSize:number}|undefined;
     if(!entries.has('manifest.json')&&!entries.has('project.json')){entries=await convertObsidianExport(entries,staging,warnings);originalSource=zipProof;}
@@ -279,12 +299,13 @@ export async function stageImport(vaultRoot: string, zipPath: string, metadataRo
         const record = byOriginal.get(pathKey(old.notePath)); if (!record || record.kind !== 'note') throw new Error('Missing backed-up note'); used.add(record.path);
         if (record.byteSize > 5_242_880) throw new Error('Note byte limit'); const text = await readUTF8(entries.get(record.path)!.absolute); const mapped = remapMarkdown(text,map); await planText(mapped,node.notePath); node.noteHash = hash(mapped);
       }
-      for (let i = 0; i < project.blobs.length; i++) { const blob = project.blobs[i], old = original.blobs[i]; blob.path = `${RESOURCES_ROOT}/${project.id}/${blob.id}/original${safeSuffix(old.path)}`; const record = fromOriginal(old.path,'blob',blob.path); if (record.sha256 !== blob.sha256 || record.byteSize !== blob.byteSize) throw new Error('Backup blob metadata mismatch'); }
+      const folder = await projectFolder(project);
+      for (let i = 0; i < project.blobs.length; i++) { const blob = project.blobs[i], old = original.blobs[i], name = project.assets.find(asset => asset.blobId === blob.id)?.originalName ?? old.path.split('/').at(-1)!; blob.path = folder ? visibleBlobPath(folder,blob,name) : `${RESOURCES_ROOT}/${project.id}/${blob.id}/original${safeSuffix(old.path)}`; const record = fromOriginal(old.path,'blob',blob.path); if (record.sha256 !== blob.sha256 || record.byteSize !== blob.byteSize) throw new Error('Backup blob metadata mismatch'); }
       const retained=retainedSource(original.importedData.retainedSource);
-      if(retained){if(typeof retained.path!=='string'||!metadataRoots.some(root=>retained.path.startsWith(`${root}/projects/${original.id}/sources/`)))throw new Error('Invalid retained legacy source');const target=`${metadataRoot}/projects/${project.id}/sources/legacy-export.zip`;const record=fromOriginal(retained.path,'source',target);if(record.sha256!==retained.sha256||record.byteSize!==retained.byteSize)throw new Error('Retained source integrity mismatch');project.importedData.retainedSource={...retained,path:target};}
+      if(retained){if(!retainedPathAllowed(retained.path,original.id))throw new Error('Invalid retained legacy source');const target=await retainedPath(project,retained.sha256);const record=fromOriginal(retained.path,'source',target);if(record.sha256!==retained.sha256||record.byteSize!==retained.byteSize)throw new Error('Retained source integrity mismatch');project.importedData.retainedSource={...retained,path:target};}
       for (let i = 0; i < project.snapshots.length; i++) {
-        const snapshot = project.snapshots[i], old = original.snapshots[i], oldDir = path.posix.dirname(old.path), targetDir = `${metadataRoot}/projects/${project.id}/reports/${snapshot.id}`; snapshot.path = `${targetDir}/snapshot.json`;
-        if (!metadataRoots.some(root => old.path === `${root}/projects/${original.id}/reports/${old.id}/snapshot.json`)) throw new Error('Invalid snapshot source path');
+        const snapshot = project.snapshots[i], old = original.snapshots[i], oldDir = path.posix.dirname(old.path), targetDir = await snapshotDirectory(project,snapshot.id); snapshot.path = `${targetDir}/snapshot.json`;
+        if (!isAllowedSnapshotPath(old.path,original.id,old.id)) throw new Error('Invalid snapshot source path');
         let found = false;
         for (const record of payloads) if (record.originalPath?.startsWith(oldDir + '/')) {
           used.add(record.path); const target = targetDir + record.originalPath.slice(oldDir.length), entry = entries.get(record.path)!;
@@ -323,9 +344,10 @@ export async function stageImport(vaultRoot: string, zipPath: string, metadataRo
         deletionBatches:raw.deletionBatches.map((b) => ({id:b.id,nodeIds:b.nodeIds,relationIds:b.relationIds,memberships:b.previousMemberships.map((m) => ({groupNodeId:m.groupNodeId,memberNodeId:m.memberNodeId,sortOrder:m.sortOrder})),createdAt:b.createdAt})),snapshots:[],receipts:{},
         importedData:{sourceFormat:originalSource?'traceweave.obsidian-export/1':`research-graph.archive/${manifest.formatVersion}`,legacyProfile:profile,sourceProjectId:source.investigation.id,sourceRevision:source.investigation.revision,importedAt:now,presentation:remap(presentation,map),sourceArchive:{nodeTypes:raw.nodeTypes,relationTypes:raw.relationTypes,reports:raw.reports,deletionBatches:raw.deletionBatches,snapshotAssets:raw.snapshotAssets}} };
       for (const node of project.nodes) await planText(raw.nodes.find(n => n.id === node.id)!.bodyMarkdown,node.notePath);
-      for (let i = 0; i < project.blobs.length; i++) { const blob=project.blobs[i], old=source.blobs[i], entry=entries.get(old.path)!; const preview=await verifiedMediaInfo(entry.absolute,blob.path); blob.mimeType=preview.mimeType; blob.mediaKind=preview.mediaKind; for (const asset of project.assets.filter(a=>a.blobId===blob.id)) { asset.mimeType=preview.mimeType; asset.mediaKind=preview.mediaKind; } plan(entry.absolute,blob.path,entry.proof); }
+      const folder = await projectFolder(project);
+      for (let i = 0; i < project.blobs.length; i++) { const blob=project.blobs[i], old=source.blobs[i], entry=entries.get(old.path)!,name=project.assets.find(asset=>asset.blobId===blob.id)?.originalName??blob.path.split('/').at(-1)!; const preview=await verifiedMediaInfo(entry.absolute,blob.path); blob.mimeType=preview.mimeType; blob.mediaKind=preview.mediaKind; for (const asset of project.assets.filter(a=>a.blobId===blob.id)) { asset.mimeType=preview.mimeType; asset.mediaKind=preview.mediaKind; } if(folder)blob.path=visibleBlobPath(folder,blob,name); plan(entry.absolute,blob.path,entry.proof); }
       for (const snapshot of raw.snapshots) {
-        const snapshotPath = `${metadataRoot}/projects/${project.id}/reports/${snapshot.id}/snapshot.json`, definition = raw.reports.find((r) => r.id === snapshot.reportDefinitionId), assetIds = snapshot.content.assets.map((a) => a.id);
+        const snapshotPath = `${await snapshotDirectory(project,snapshot.id)}/snapshot.json`, definition = raw.reports.find((r) => r.id === snapshot.reportDefinitionId), assetIds = snapshot.content.assets.map((a) => a.id);
         await planJSON(snapshot,snapshotPath);
         const markdown = `# ${definition?.title ?? t('Импортированный отчёт', 'Imported report')}\n\n` + snapshot.content.nodes.map((node) => `## ${node.title}\n\n${node.bodyMarkdown}\n`).join('\n'); await planText(markdown,path.posix.dirname(snapshotPath)+'/report.md');
         for (const blobId of new Set<string>(snapshot.content.assets.map((a) => a.blobId))) { const current = project.blobs.find(b => b.id === blobId)!; if (!current) throw new Error('Snapshot blob missing'); const index=raw.blobs.findIndex((b)=>b.id===blobId),entry=entries.get(source.blobs[index].path)!; plan(entry.absolute,path.posix.dirname(snapshotPath)+`/files/${blobId}${safeSuffix(current.path)}`,entry.proof); }
@@ -333,7 +355,7 @@ export async function stageImport(vaultRoot: string, zipPath: string, metadataRo
         project.snapshots.push({id:snapshot.id,title:definition?.title ?? t('Импортированный отчёт', 'Imported report'),path:snapshotPath,sourceRevision:snapshot.sourceRevision,createdAt:snapshot.createdAt,assetIds});
       }
     } else throw new Error('Unsupported archive. Use full TraceWeave archive 2.0 or plugin backup 1.0; legacy Obsidian exports require explicit reconciliation.');
-    if(originalSource){const target=`${metadataRoot}/projects/${project.id}/sources/legacy-export.zip`;plan(zipPath,target,originalSource);project.importedData.retainedSource={...originalSource,path:target};}
+    if(originalSource){const target=await retainedPath(project,originalSource.sha256);plan(zipPath,target,originalSource);project.importedData.retainedSource={...originalSource,path:target};}
     if(warnings.length)project.importedData.warnings=warnings;
     validateProject(project);
     return {
@@ -353,10 +375,12 @@ export async function stageImport(vaultRoot: string, zipPath: string, metadataRo
   } catch (error) { await fs.rm(staging,{recursive:true,force:true}); throw error; }
 }
 
-export async function createReport(vaultRoot: string, project: Project, title: string, nodeIds?: string[], metadataRoot = DATA_ROOT): Promise<SnapshotRecord> {
+export async function createReport(vaultRoot: string, project: Project, title: string, nodeIds?: string[], metadataRoot = DATA_ROOT, outputParent?: string): Promise<SnapshotRecord> {
   validateProject(project); safeRelative(metadataRoot); if (!title.trim() || title.length > 200) throw new Error('Invalid report title');
   const selected = new Set(nodeIds ?? project.nodes.filter(n => !n.deletedAt).map(n => n.id)); if (!selected.size || [...selected].some(id => !project.nodes.some(n=>n.id===id && !n.deletedAt))) throw new Error('Report selection must contain active nodes');
-  const id=randomUUID(), relative=`${metadataRoot}/projects/${project.id}/reports/${id}`, stage=`${metadataRoot}/reports-staging/${id}`, stageRoot=path.dirname(await resolveSafe(vaultRoot,`${stage}/snapshot.json`,true)), destination=path.dirname(await resolveSafe(vaultRoot,`${relative}/snapshot.json`,true));
+  const id=randomUUID(), relative=outputParent?`${outputParent}/snapshots/${id}`:`${metadataRoot}/projects/${project.id}/reports/${id}`, stage=`${metadataRoot}/reports-staging/${id}`;
+  if(!isAllowedSnapshotPath(relative+'/snapshot.json',project.id,id))throw new Error('Invalid report destination');
+  const stageRoot=path.dirname(await resolveSafe(vaultRoot,`${stage}/snapshot.json`,true)), destination=path.dirname(await resolveSafe(vaultRoot,`${relative}/snapshot.json`,true));
   // resolveSafe creates parent directories, so promotion claims an absent final leaf explicitly.
   await fs.rmdir(destination);
   try {

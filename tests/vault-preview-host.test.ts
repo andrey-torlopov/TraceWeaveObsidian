@@ -20,9 +20,9 @@ test('indexed ordinary-note links resolve source-relative attachment and heading
 });
 
 test('host rejects traversal, external URL/protocol, technical metadata and symlink destinations before rendering',async t=>{
- const f=await fixture(t),source='Projects/Notes/A.md';await f.add('TWData/projects/p/secret.md','technical');
- for(const value of ['../../../../outside.md','https://tracker.invalid/pixel.png','//tracker.invalid/pixel.png','%68ttps%3A%2F%2Ftracker.invalid/x','file:///private/secret','javascript:alert(1)','../Assets/../../../../outside.md','/TWData/projects/p/secret.md','/.obsidian/config.json'])assert.equal(await f.links.resolve(source,value),null,value);
- assert.deepEqual(f.urls,[]);assert.equal(await f.links.resolve('TWData/projects/p/secret.md','B'),null);
+ const f=await fixture(t),source='Projects/Notes/A.md',technical='TWData/projects/12345678-1234-1234-1234-123456789abc/history/secret.md';await f.add(technical,'technical');
+ for(const value of ['../../../../outside.md','https://tracker.invalid/pixel.png','//tracker.invalid/pixel.png','%68ttps%3A%2F%2Ftracker.invalid/x','file:///private/secret','javascript:alert(1)','../Assets/../../../../outside.md','/'+technical,'/.obsidian/config.json'])assert.equal(await f.links.resolve(source,value),null,value);
+ assert.deepEqual(f.urls,[]);assert.equal(await f.links.resolve(technical,'B'),null);
  const outside=await fs.mkdtemp(path.join(os.tmpdir(),'traceweave-linked-outside-'));t.after(()=>fs.rm(outside,{recursive:true,force:true}));await fs.writeFile(path.join(outside,'secret.png'),'outside');await fs.symlink(path.join(outside,'secret.png'),path.join(f.root,'Projects/Assets/symlink.png'));f.indexed.set('Projects/Assets/symlink.png',{path:'Projects/Assets/symlink.png',basename:'symlink',extension:'png'});await assert.rejects(f.links.resolve(source,'../Assets/symlink.png'));assert.deepEqual(f.urls,[]);
 });
 

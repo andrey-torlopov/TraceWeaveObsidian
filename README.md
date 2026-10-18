@@ -18,9 +18,9 @@ Use existing Markdown notes in place, create documents, attach images, PDFs, aud
 
 The images above are shared TraceWeave illustrations, not screenshots of the plugin.
 
-**TraceWeave 0.1.6 supports English and Russian interfaces.** The language follows Obsidian automatically, with an override under **Settings → TraceWeave → Interface language**. Notes, relationship labels and custom types keep their original text.
+**TraceWeave 0.2.0 supports English and Russian interfaces.** The language follows Obsidian automatically, with an override under **Settings → TraceWeave → Interface language**. Notes, relationship labels and custom types keep their original text.
 
-Use **Export report** to read a research project on your phone without the plugin: a visible folder contains `summary.md`, a native `scheme.canvas`, and copied attachments. Set the destination under **Settings → TraceWeave → Reports folder**; an empty path uses the vault root. [Report instructions](docs/en/backup-import.md#readable-report-for-desktop-and-mobile).
+Use **Export report** to read a research project on your phone without the plugin: a visible folder contains `summary.md`, a native `scheme.canvas`, and copied attachments. The default destination is `TWData/exports/`; change the visible parent under **Settings → TraceWeave → Data folder**. [Report instructions](docs/en/backup-import.md#readable-report-for-desktop-and-mobile).
 
 ## Screenshots
 
@@ -48,8 +48,11 @@ Install from the [Obsidian Community directory](https://community.obsidian.md/pl
 
 1. Open the command palette and run **TraceWeave: Open research** (**Открыть исследование** in Russian).
 2. Choose **Create research** (**Создать исследование**).
-3. Use **Link vault note** (**Подключить заметку из vault**) to add an existing note, or **+ Document** (**+ Документ**) to create one.
-4. Connect two cards and enter an optional relationship label. Set **Assessment → Hypothesis** (**Оценка → Гипотеза**) for a dashed line.
+3. Choose **+ Document** (**+ Документ**), enter the node title, then select an existing vault note or create a new one using Obsidian's new-note location setting. Existing notes stay in place, and the graph title can differ from the filename.
+4. Connect two cards and enter an optional relationship label. Set **Assessment → Hypothesis** (**Оценка → Гипотеза**) for a dashed line. Double-click a node to open its note; **Read** expands a card explicitly.
+5. Run **Project diagnostics** (**Диагностика проекта**) to check linked notes and registered files. Affected nodes turn red; opening a missing note offers to link another vault note or create a replacement while keeping the graph connections.
+
+Attachments are visible under `TWData/projects/<stable research folder>/`, grouped by type. Reports and ZIP exports use `TWData/exports/`. The data folder is configurable; node notes follow Obsidian's own folder setting.
 
 [Continue the quick start](docs/en/quick-start.md).
 
@@ -62,6 +65,8 @@ Install from the [Obsidian Community directory](https://community.obsidian.md/pl
 - [All user documentation](docs/en/index.md)
 - [Storage and migration protocol, in Russian](docs/storage.md)
 - [Build and publication guide, in Russian](docs/publishing.md)
+
+**Before upgrading to 0.2.0, keep a full copy of the closed vault, including hidden metadata. Returning to 0.1.6 requires that pre-upgrade copy; replacing plugin files alone is insufficient.** Registered originals are copied into the visible layout, and previous files remain available for existing links.
 
 **Backups must include `.twdata`. Obsidian Sync excludes this hidden folder**, so syncing notes alone does not transfer your graph. Work with one active writer. ZIP import creates a separate research copy; ordinary wikilinks and relative Markdown file paths may need repair after import. See [backup and import limits](docs/en/backup-import.md).
 
@@ -82,4 +87,4 @@ npm test
 npm run package
 ```
 
-Packaging builds the bundle, creates a local `release/traceweave-0.1.5.zip` and places individual release assets in `release/0.1.5/`. GitHub releases publish only `main.js`, `manifest.json` and `styles.css`, with build provenance attestations. Users install the compiled plugin, without Node.js or this source tree. The plugin is licensed under [MIT](LICENSE); `main.js` includes the bundled components' [license notices](THIRD_PARTY_NOTICES.md).
+Packaging builds the bundle, creates a local `release/traceweave-0.2.0.zip` and places individual release assets in `release/0.2.0/`. GitHub releases publish only `main.js`, `manifest.json` and `styles.css`, with build provenance attestations. Users install the compiled plugin, without Node.js or this source tree. The plugin is licensed under [MIT](LICENSE); `main.js` includes the bundled components' [license notices](THIRD_PARTY_NOTICES.md).

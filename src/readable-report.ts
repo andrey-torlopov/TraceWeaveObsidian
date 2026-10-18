@@ -4,7 +4,7 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import type { Asset, Attribute, Evidence, Project, ProjectNode, ReadableReportResult, Relation, VaultLink } from './types';
 import { copyChecked, digestFile, resolveSafe, safeRelative, verifiedMediaInfo } from './storage/files';
-import { hasControlCharacters } from './storage/layout';
+import { hasControlCharacters, isTechnicalPath } from './storage/layout';
 import { t } from './i18n';
 import { markdownDestination, markdownLabel, prepareReportMarkdown, relocateReportMarkdown, type PreparedMarkdown, type ReportLink } from './report-markdown';
 
@@ -20,7 +20,7 @@ interface ReportOptions { configDir?: string; resolveLink?: (sourcePath: string,
 export function validateReportFolder(value: string, configDir?: string): string {
   if (value === '') return '';
   safeRelative(value, configDir);
-  if (value.split('/').some(part => part.startsWith('.') || ['twdata', '_traceweave'].includes(part.toLowerCase()) || /[<>"|?*#]/u.test(part) || /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/iu.test(part))) throw new Error(t('Небезопасная папка отчётов.', 'Unsafe report folder.'));
+  if (isTechnicalPath(value, configDir) || value.split('/').some(part => part.startsWith('.') || /[<>"|?*#]/u.test(part) || /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/iu.test(part))) throw new Error(t('Небезопасная папка отчётов.', 'Unsafe report folder.'));
   return value;
 }
 function safeName(value: string, fallback: string): string {

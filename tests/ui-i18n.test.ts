@@ -42,9 +42,9 @@ async function fixture(context: TestContext) {
   const publish = (changes: Partial<WorkbenchSnapshot>) => { state = { ...state, ...changes }; listeners.forEach(listener => listener()); };
   const service: WorkbenchService = {
     subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener); }, getSnapshot: () => state,
-    createProject: unsupported, openProject: unsupported, createGroup: unsupported, createNote: unsupported, adoptNote: unsupported, relinkNote: unsupported,
+    createProject: unsupported, openProject: unsupported, createGroup: unsupported, createNote: unsupported, adoptNote: unsupported, relinkNote: unsupported, recreateNote: unsupported, diagnoseProject: unsupported,
     execute: async batch => { commands.push(...batch); publish({ project: applyCommands(state.project as Project, batch, timestamp) }); },
-    openNote: async nodeId => { opened.push(nodeId); }, readNote: async () => '# Archive source\n\nA synthetic note used to verify the research workflow.',
+    openNote: async nodeId => { opened.push(nodeId); return 'opened'; }, readNote: async () => '# Archive source\n\nA synthetic note used to verify the research workflow.',
     listNotes: () => [{ title: 'Map', path: 'Archive/Map.md' }, { title: 'Conclusion', path: 'Archive/Conclusion.md' }],
     resolveVaultLink: async () => null, openVaultLink: unsupported, importFiles: unsupported, cancelImport: () => { throw new Error('Unexpected import cancellation.'); },
     discoverResources: async () => [], registerResource: unsupported, resourceUrl: assetId => `app://local/${assetId}`, showAsset: unsupported,
@@ -146,8 +146,8 @@ test('English dossier, materials, archive verification and creation dialogs use 
   assert.match(ui.container.querySelector('[role="dialog"]')!.textContent!, /Label \(optional\)/);
   assert.match(ui.container.querySelector('[role="dialog"]')!.textContent!, /Bidirectional/);
   await ui.click('Cancel');
-  await ui.click('+ Document');
-  assert.ok(ui.container.querySelector('[role="dialog"][aria-label="New document"]'));
+  await ui.click('+ Node');
+  assert.ok(ui.container.querySelector('[role="dialog"][aria-label="New node"]'));
   assert.match(ui.container.querySelector('[role="dialog"]')!.textContent!, /Document type/);
   await ui.click('Cancel');
   await ui.click('Materials');

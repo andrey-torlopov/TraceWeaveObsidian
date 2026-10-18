@@ -2,6 +2,16 @@
 
 Plugin versions and portable archive format versions are independent.
 
+## 0.2.0 — Vault-native notes and project diagnostics — 2026-10-18
+
+- Create nodes by naming them and selecting an existing vault note or creating a new note through Obsidian's configured new-file location. Existing notes are linked in place, without copying or adding frontmatter.
+- Double-click or double-tap a node to open its native note. Missing notes offer explicit relinking or creation of a replacement with the same node identity and relationships.
+- Add project diagnostics for missing, invalid or changed notes and registered materials. Affected nodes are red in the graph, minimap and dossier; diagnostics remain available in read-only and archived projects.
+- Introduce a configurable visible data folder, `TWData` by default, with categorized project originals under `projects/<research>/` and reports/archives under `exports/<research>/`.
+- Copy verified existing originals to the new layout while retaining old files for existing links and recovery. Ordinary notes and historical snapshots stay in place. Journal data-folder changes and resume interrupted metadata updates before committing the new setting.
+- Preserve one writer, original hash checks, safe vault-relative paths and ZIP import validation. Newly retained import archives and snapshots use visible folders; hidden `.twdata` remains the technical store.
+- Before upgrading, back up the entire closed vault including hidden `.twdata`. Downgrading to 0.1.6 requires the pre-upgrade metadata backup; replacing plugin binaries alone does not undo settings/layout changes. TraceWeave remains desktop-only; full metadata synchronization and ordinary ZIP link rewriting remain limited.
+
 ## 0.1.6 — Readable vault reports — 2026-10-17
 
 - Export the entire active research into a visible vault folder containing `summary.md`, `scheme.canvas` and categorized copies under `Attachments/`.

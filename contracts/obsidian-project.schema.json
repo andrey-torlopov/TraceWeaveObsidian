@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:traceweave:obsidian-project:1.0",
   "title": "TraceWeave Obsidian ProjectState 1.0",
-  "description": "Strict structural schema for .twdata/projects/<projectId>/state.json. Runtime validateProject additionally enforces NFC, full Unicode casefold uniqueness, exact Emoji17 membership, UTF-8 byte limits, real calendar dates, reference integrity, unique IDs, membership, deletion/snapshot ownership, primary attachments and matching asset/blob proofs. This schema does not read or modify Markdown. Legacy _TraceWeave snapshot paths remain readable for 0.1.0 migration and validated backup import; New writes use .twdata; TWData and _TraceWeave snapshot paths remain readable for staged upgrades. User notes/originals are visible outside hidden folders.",
+  "description": "Strict structural schema for .twdata/projects/<projectId>/state.json. Runtime validateProject additionally enforces NFC, full Unicode casefold uniqueness, exact Emoji17 membership, UTF-8 byte limits, real calendar dates, reference integrity, unique IDs, membership, deletion/snapshot ownership, primary attachments and matching asset/blob proofs. This schema does not read or modify Markdown. Legacy _TraceWeave snapshot paths remain readable for 0.1.0 migration and validated backup import; Metadata writes use .twdata. Legacy TWData and _TraceWeave snapshot paths remain readable for staged upgrades; new immutable snapshots may use visible exports folders. User notes/originals are visible outside hidden folders, including configurable TWData/projects folders.",
   "type": "object",
   "properties": {
     "format": {
@@ -323,12 +323,17 @@
             "pattern": "(?:^|/)[Tt][Ww][Dd][Aa][Tt][Aa](?:/|$)"
           },
           "then": {
-            "pattern": "^TWData/resources/.+"
+            "pattern": "^(?:TWData/resources/.+|(?:[^/]+/)*[Tt][Ww][Dd][Aa][Tt][Aa]/(?:projects|exports)/.+)$"
           }
         },
         {
           "not": {
             "pattern": "(?:^|/)\\."
+          }
+        },
+        {
+          "not": {
+            "pattern": "(?:^|/)[Tt][Ww][Dd][Aa][Tt][Aa]/projects/(?:state\\.json|settings\\.json|writer\\.lock|migration\\.json|layout-migration\\.json|view\\.json|drafts\\.json)$|(?:^|/)[Tt][Ww][Dd][Aa][Tt][Aa]/projects/[a-f0-9-]{36}/(?:state\\.json|history|journal|recovery|reports|sources|view\\.json|drafts\\.json)(?:/|$)"
           }
         }
       ]
@@ -1497,7 +1502,21 @@
         },
         "path": {
           "type": "string",
-          "pattern": "^(?:\\.twdata|TWData|_TraceWeave)/projects/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/reports/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/snapshot\\.json$"
+          "anyOf": [
+            {
+              "pattern": "^(?:\\.twdata|TWData|_TraceWeave)/projects/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/reports/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/snapshot\\.json$"
+            },
+            {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/resourcePath"
+                },
+                {
+                  "pattern": "^.+/exports/.+/snapshots/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/snapshot\\.json$"
+                }
+              ]
+            }
+          ]
         },
         "sourceRevision": {
           "$ref": "#/$defs/integer"

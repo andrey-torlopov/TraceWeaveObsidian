@@ -69,7 +69,7 @@
 .tw-obsidian .tw-selection-bar { padding: 7px 15px; background: color-mix(in srgb, var(--tw-accent) 12%, var(--tw-panel)); display: flex; align-items: center; gap: 8px; }
 .tw-obsidian .tw-graph-card { width: 245px; min-height: 112px; border: 1px solid var(--tw-border); border-top: 3px solid var(--tw-accent); border-radius: var(--tw-radius); padding: 12px; background: var(--tw-panel); box-shadow: 0 3px 12px #00000012; color: var(--tw-text); }
 .tw-obsidian .tw-graph-card.is-selected { box-shadow: 0 0 0 2px var(--tw-accent), 0 5px 16px #00000016; }
-.tw-obsidian .tw-graph-card.is-missing { border-style: dashed; }
+.tw-obsidian .tw-graph-card.is-missing { border-style: dashed; background: color-mix(in srgb, var(--text-error) 9%, var(--tw-panel)); }
 .tw-obsidian .tw-graph-card.is-expanded { width: 365px; }
 .tw-obsidian .tw-graph-card:not(.is-expanded):not(.is-circle) { height: 112px; }
 .tw-obsidian .tw-graph-card.is-expanded { height: 448px; display: flex; flex-direction: column; }
@@ -291,3 +291,8 @@
   .tw-obsidian .tw-inspector { position: absolute; z-index: 20; inset: 0; }
   .tw-obsidian .tw-form-columns { grid-template-columns: minmax(0, 1fr); gap: 0; }
 }
+
+.tw-obsidian .tw-dossier-item.is-missing { border-color: var(--text-error); background: color-mix(in srgb, var(--text-error) 9%, var(--tw-panel)); }
+.tw-obsidian .tw-diagnostic-list { list-style: none; margin: 0; padding: 0; }
+.tw-obsidian .tw-diagnostic-list > li { display: flex; flex-direction: column; gap: 7px; padding: 12px 0; border-bottom: 1px solid var(--tw-border); }
+.tw-obsidian .tw-diagnostic-list code { white-space: normal; overflow-wrap: anywhere; }

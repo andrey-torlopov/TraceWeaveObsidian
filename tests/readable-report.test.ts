@@ -100,7 +100,8 @@ test('missing/changed originals and changed captured notes fail without a partia
 }));
 
 test('report folder rejects traversal, hidden/config paths and symlinks; Unicode names fit filesystem limits', async () => withVault(async root => {
-  for (const value of ['/abs', '../outside', 'a/../b', 'a//b', 'a\\b', 'C:/path', '.obsidian', 'Reports/.hidden', 'TWData', '_TraceWeave', 'Reports/x?', 'Reports/x#y', 'Reports/x\0']) assert.throws(() => validateReportFolder(value));
+  for (const value of ['/abs', '../outside', 'a/../b', 'a//b', 'a\\b', 'C:/path', '.obsidian', 'Reports/.hidden', 'TWData/settings.json', '_TraceWeave', 'Reports/x?', 'Reports/x#y', 'Reports/x\0']) assert.throws(() => validateReportFolder(value));
+  assert.equal(validateReportFolder('TWData/exports'), 'TWData/exports');
   assert.throws(() => validateReportFolder('PluginConfig/Reports', 'PluginConfig')); assert.equal(validateReportFolder('Reports/Папка 🧪'), 'Reports/Папка 🧪'); assert.equal(validateReportFolder(''), '');
   await notes(root); await fs.symlink(path.join(root, 'Notes'), path.join(root, 'Linked')); await assert.rejects(() => exportReadableReport(root, project(), 'Linked'), /Symbolic/);
   await fs.unlink(path.join(root, 'Notes/Later.md')); await fs.symlink(path.join(root, 'Notes/Earlier.md'), path.join(root, 'Notes/Later.md')); await assert.rejects(() => exportReadableReport(root, project(), ''), /Symbolic/); await fs.unlink(path.join(root, 'Notes/Later.md')); await write(root, 'Notes/Later.md', 'Later');

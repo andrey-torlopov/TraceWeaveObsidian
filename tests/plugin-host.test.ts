@@ -5,7 +5,8 @@ import { createRequire } from 'node:module';
 import { runInNewContext } from 'node:vm';
 import { transform } from 'esbuild';
 import * as locale from '../src/i18n';
-import { validateReportFolder } from '../src/readable-report';
+import { caseFold } from '../src/casefold';
+import * as layout from '../src/storage/layout';
 import type { Setting, SettingDefinitionItem, SettingGroup, TextComponent, ButtonComponent } from 'obsidian';
 
 interface SettingsTab {
@@ -27,7 +28,8 @@ function renderSettingsDefinitions(previous: SettingDefinitionItem[], next: Sett
 }
 interface TestView { getDisplayText(): string; onOpen(): Promise<void>; onClose(): Promise<void> }
 interface TestService {
-  host: { openNote(path: string): Promise<void>; reportsFolder(): string };
+  host: { openNote(path: string): Promise<void>; createNote(title: string): Promise<string> };
+  getDataFolder(): string;
   initialize(): Promise<void>;
   dispose(): Promise<void>;
 }
@@ -36,7 +38,7 @@ interface TestPlugin {
   onunload(): void;
   openWorkbench(): Promise<void>;
   languagePreference: string;
-  reportsFolder: string;
+  dataFolder: string;
   service: TestService;
   settingTabs: SettingsTab[];
   views: Map<string, (leaf: object) => TestView>;
@@ -44,11 +46,16 @@ interface TestPlugin {
 }
 
 /** Compile only the real host entry. Every imported boundary is a deterministic, in-memory host. */
-async function pluginHarness(options: { deferLoad?: boolean; deferInitialize?: boolean; deferView?: boolean; deferSave?: boolean; initialData?: unknown } = {}) {
+async function pluginHarness(options: { deferLoad?: boolean; deferInitialize?: boolean; deferView?: boolean; deferSave?: boolean; initialData?: unknown; dataFolder?: string; newFileParent?: string } = {}) {
   const events: string[] = [], notices: string[] = [], timers = new Map<number, () => void>(), cleared: number[] = [];
   const vaultEvents = new Map<string, (...args: unknown[]) => void>();
   const vaultListeners = new Map<string, Set<(...args: unknown[]) => void>>(), removedVaultRefs: string[] = [];
   const diskFiles = new Set<string>(), indexedFiles = new Map<string, { path: string; extension: string }>(), openedFiles: string[] = [];
+  const createdFiles: { path: string; text: string }[] = [], newFileParents: { sourcePath: string; filename: string }[] = [];
+  const parentChildren: { name: string }[] = [];
+  const changedFiles: string[] = [], renamedFiles: { newPath: string; oldPath: string }[] = [];
+  let newFileParent = options.newFileParent ?? '', createFailure: unknown, configureFailure: unknown;
+  let dataFolder = options.dataFolder ?? 'TWData';
   const timerDurations = new Map<number, number>();
   let additionalListener: ((event: string) => void) | undefined;
   let markIndexWaitStarted!: () => void;
@@ -93,10 +100,15 @@ async function pluginHarness(options: { deferLoad?: boolean; deferInitialize?: b
         return { event, handler };
       },
       offref: (ref: { event: string; handler: (...args: unknown[]) => void }) => { vaultListeners.get(ref.event)?.delete(ref.handler); removedVaultRefs.push(ref.event); },
-      getFileByPath: (relative: string) => indexedFiles.get(relative) ?? null, getFolderByPath: () => null, getMarkdownFiles: () => [],
-      createFolder: async () => {}, create: async () => {},
+      getFileByPath: (relative: string) => indexedFiles.get(relative) ?? null, getAbstractFileByPath: (relative: string) => indexedFiles.get(relative) ?? null, getFolderByPath: () => null, getMarkdownFiles: () => [],
+      createFolder: async () => {}, create: async (relative: string, text: string) => {
+        if (createFailure !== undefined) throw createFailure;
+        if (diskFiles.has(relative)) throw new Error('File already exists');
+        diskFiles.add(relative); const file = { path: relative, extension: 'md' }; indexedFiles.set(relative, file); createdFiles.push({ path: relative, text }); return file;
+      },
     },
     metadataCache: { getFirstLinkpathDest: () => null },
+    fileManager: { getNewFileParent: (sourcePath: string, filename: string) => { newFileParents.push({ sourcePath, filename }); return { path: newFileParent, children: parentChildren }; } },
     workspace: {
       containerEl: { win: timerWindow },
       on: () => ({}), onLayoutReady: (callback: () => void) => { onLayoutReady = callback; }, getActiveFile: () => activeFile,
@@ -139,10 +151,12 @@ async function pluginHarness(options: { deferLoad?: boolean; deferInitialize?: b
   class LocalWorkbench {
     constructor(readonly repository: ProjectRepository, readonly host: TestService['host']) {}
     async initialize() { events.push('initialize'); await initializing; }
+    getDataFolder() { return dataFolder; }
+    async configureDataFolder(value: string) { events.push('configure-data-folder'); if (configureFailure !== undefined) throw configureFailure; dataFolder = value; }
     async dispose() { events.push('dispose'); disposed(); }
     refreshLanguage() { events.push('refresh-language'); }
-    async onFileChanged() { events.push('file-changed'); }
-    async onRenamed() { events.push('file-renamed'); }
+    async onFileChanged(relative: string) { events.push('file-changed'); changedFiles.push(relative); }
+    async onRenamed(newPath: string, oldPath: string) { events.push('file-renamed'); renamedFiles.push({ newPath, oldPath }); }
     async adoptNote() { events.push('adopt-note'); }
   }
   class VaultLinks {
@@ -156,7 +170,7 @@ async function pluginHarness(options: { deferLoad?: boolean; deferInitialize?: b
     './vault-links': { VaultLinks },
     './storage/migration': { getMigratedPath: async () => null, getOriginalPath: async () => null },
     './report-document': { reportDocumentInfo: () => null }, './ui/report': {}, './i18n': locale,
-    './readable-report': { validateReportFolder },
+    './storage/layout': layout, './casefold': { caseFold },
     './ui': {
       mountWorkbench: () => { events.push('mount'); return () => { events.push('unmount'); }; },
       flushWorkbenchDrafts: async () => { events.push('flush-drafts'); if (flushFailure !== undefined) throw flushFailure; },
@@ -166,7 +180,7 @@ async function pluginHarness(options: { deferLoad?: boolean; deferInitialize?: b
   const compiled = await transform(source, { loader: 'ts', format: 'cjs', target: 'es2022' });
   const module = { exports: {} as { default?: new () => TestPlugin } }, nativeRequire = createRequire(import.meta.url);
   runInNewContext(compiled.code, {
-    module, exports: module.exports, Error,
+    module, exports: module.exports, Error, Buffer,
     require: (id: string) => Object.hasOwn(boundaries, id) ? boundaries[id] : nativeRequire(id),
     window: timerWindow,
   });
@@ -176,6 +190,7 @@ async function pluginHarness(options: { deferLoad?: boolean; deferInitialize?: b
   if (!options.deferLoad) await loading;
   return {
     plugin, events, notices, timers, cleared, vaultEvents, disposal, loading, viewStarted, saveStarted, diskFiles, indexedFiles, openedFiles, removedVaultRefs, indexWaitStarted, timerDurations,
+    createdFiles, newFileParents, parentChildren, changedFiles, renamedFiles,
     releaseLoad, releaseInitialize, releaseView, releaseSave, layoutReady: () => onLayoutReady?.(),
     fireTimers: () => { for (const [id, callback] of timers) { timers.delete(id); timerDurations.delete(id); callback(); } },
     vaultListenerCount: (event: string) => vaultListeners.get(event)?.size ?? 0,
@@ -183,6 +198,8 @@ async function pluginHarness(options: { deferLoad?: boolean; deferInitialize?: b
     repositoryOptions: () => repositoryOptions, linkConfig: () => linkConfig, storedData: () => storedData,
     failFlush: (error: unknown) => { flushFailure = error; }, failSave: (error: unknown) => { saveFailure = error; },
     setActiveFile: (path: string) => { activeFile = { path, extension: 'md' }; },
+    setNewFileParent: (relative: string) => { newFileParent = relative; },
+    failCreate: (error: unknown) => { createFailure = error; }, failConfigure: (error: unknown) => { configureFailure = error; },
   };
 }
 
@@ -209,34 +226,32 @@ test('declarative plugin settings are searchable, localized and persist only val
   assert.deepEqual(harness.notices, []);
 });
 
-test('the reports folder defaults to the vault root and its setting is localized', async t => {
+test('the data folder defaults to TWData and its setting is localized', async t => {
   const harness = await pluginHarness();
   t.after(() => locale.setLocale('ru'));
   const tab = harness.plugin.settingTabs[0];
-  assert.equal(harness.plugin.reportsFolder, '');
-  assert.equal(harness.plugin.service.host.reportsFolder(), '');
-  assert.equal(tab.getControlValue('reportsFolder'), '');
+  assert.equal(harness.plugin.dataFolder, 'TWData');
+  assert.equal(tab.getControlValue('dataFolder'), 'TWData');
   const row = tab.getSettingDefinitions()[1];
   assert.ok('name' in row && 'desc' in row && 'render' in row && typeof row.render === 'function');
-  assert.equal(row.name, 'Папка отчётов');
-  assert.match(String(row.desc), /Пустое поле — корень хранилища/u);
+  assert.equal(row.name, 'Папка данных');
+  assert.match(String(row.desc), /projects.*exports/u);
   await tab.setControlValue('language', 'en');
   const translated = tab.getSettingDefinitions()[1];
   assert.ok('name' in translated && 'desc' in translated);
-  assert.equal(translated.name, 'Reports folder');
-  assert.match(String(translated.desc), /relative to the Obsidian vault root/u);
-  assert.match(String(translated.desc), /Leave blank/u);
-  assert.equal(Object.hasOwn(harness.storedData() as object, 'reportsFolder'), false);
+  assert.equal(translated.name, 'Data folder');
+  assert.match(String(translated.desc), /TWData/u);
+  assert.equal(Object.hasOwn(harness.storedData() as object, 'dataFolder'), false);
 });
 
-test('editing the reports folder does not persist or validate incomplete input until Save', async () => {
+test('editing the data folder does not apply incomplete input until Save', async () => {
   const harness = await pluginHarness(), tab = harness.plugin.settingTabs[0];
   const row = tab.getSettingDefinitions()[1];
   assert.ok('render' in row && typeof row.render === 'function');
   let onChange: ((value: string) => void) | undefined;
   let onClick: (() => void) | undefined;
   const text = {
-    setPlaceholder() { return this; }, setValue(value: string) { assert.equal(value, ''); return this; },
+    setPlaceholder(value: string) { assert.equal(value, 'TWData'); return this; }, setValue(value: string) { assert.equal(value, 'TWData'); return this; },
     onChange(callback: (value: string) => void) { onChange = callback; return this; },
   };
   const button = {
@@ -253,95 +268,68 @@ test('editing the reports folder does not persist or validate incomplete input u
   await Promise.resolve();
   assert.deepEqual(harness.events, []);
   assert.deepEqual(harness.notices, []);
-  assert.equal(tab.getControlValue('reportsFolder'), '');
+  assert.equal(tab.getControlValue('dataFolder'), 'TWData');
   let saved: Promise<void> = Promise.resolve();
   const apply = tab.setControlValue.bind(tab);
   tab.setControlValue = (key, value) => { saved = apply(key, value); return saved; };
-  onChange('Reports');
-  onClick();
-  await saved;
-  assert.equal(tab.getControlValue('reportsFolder'), 'Reports');
-  assert.deepEqual(harness.events, ['save-data']);
-});
-
-test('the reports folder persists across reloads and blank restores the vault root', async t => {
-  const initialData = { language: 'ru', retainedSetting: { future: true }, reportsFolder: 'Old reports' };
-  const harness = await pluginHarness({ initialData });
-  t.after(() => locale.setLocale('ru'));
-  const tab = harness.plugin.settingTabs[0];
-  assert.equal(tab.getControlValue('reportsFolder'), 'Old reports');
-  assert.equal(harness.plugin.service.host.reportsFolder(), 'Old reports');
-  await tab.setControlValue('reportsFolder', 'Отчёты/Research');
-  assert.equal(tab.getControlValue('reportsFolder'), 'Отчёты/Research');
-  assert.equal(harness.plugin.service.host.reportsFolder(), 'Отчёты/Research');
-  const persisted = structuredClone(harness.storedData());
-  assert.deepEqual(persisted, { ...initialData, reportsFolder: 'Отчёты/Research' });
-  const reloaded = await pluginHarness({ initialData: persisted });
-  assert.equal(reloaded.plugin.settingTabs[0].getControlValue('reportsFolder'), 'Отчёты/Research');
-  await reloaded.plugin.settingTabs[0].setControlValue('reportsFolder', '');
-  assert.equal(reloaded.plugin.service.host.reportsFolder(), '');
-  assert.deepEqual(structuredClone(reloaded.storedData()), { ...initialData, reportsFolder: '' });
-  assert.deepEqual(harness.events, ['save-data']);
-  assert.deepEqual(harness.notices, []);
-});
-
-test('invalid reports folders never change confirmed settings or write plugin data', async () => {
-  const harness = await pluginHarness({ initialData: { language: 'ru', retainedSetting: true, reportsFolder: 'Reports' } });
-  const tab = harness.plugin.settingTabs[0];
-  for (const value of ['/absolute', '../outside', 'Reports/../outside', '.obsidian/Reports', 'Settings/Reports', 'settings/Reports', 'Reports/.hidden']) {
-    const noticesBefore = harness.notices.length;
-    await tab.setControlValue('reportsFolder', value);
-    assert.equal(harness.notices.length, noticesBefore + 1, value);
-    assert.equal(tab.getControlValue('reportsFolder'), 'Reports', value);
-    assert.equal(harness.plugin.service.host.reportsFolder(), 'Reports', value);
-  }
-  await tab.setControlValue('reportsFolder', 42);
-  assert.equal(harness.notices.length, 7);
-  assert.deepEqual(harness.events, []);
+  onChange('Research/TWData'); onClick(); await saved;
+  assert.equal(tab.getControlValue('dataFolder'), 'Research/TWData');
+  assert.deepEqual(harness.events, ['initialize', 'flush-drafts', 'configure-data-folder']);
   assert.deepEqual(harness.storedData(), {});
 });
 
-test('invalid saved report folder values warn and fall back to the root without rewriting data', async () => {
+test('the data folder is read from the service while legacy and unknown plugin settings are retained', async t => {
+  const initialData = { language: 'ru', retainedSetting: { future: true }, reportsFolder: 'Old reports' };
+  const harness = await pluginHarness({ initialData, dataFolder: 'Research/Data' });
+  t.after(() => locale.setLocale('ru'));
+  const tab = harness.plugin.settingTabs[0];
+  assert.equal(tab.getControlValue('dataFolder'), 'Research/Data');
+  assert.equal(tab.getControlValue('reportsFolder'), undefined);
+  await tab.setControlValue('dataFolder', 'Отчёты/Research');
+  assert.equal(harness.plugin.service.getDataFolder(), 'Отчёты/Research');
+  assert.deepEqual(harness.storedData(), {});
+  await tab.setControlValue('language', 'en');
+  assert.deepEqual(structuredClone(harness.storedData()), { ...initialData, language: 'en' });
+  const reloaded = await pluginHarness({ initialData: harness.storedData(), dataFolder: harness.plugin.service.getDataFolder() });
+  assert.equal(reloaded.plugin.settingTabs[0].getControlValue('dataFolder'), 'Отчёты/Research');
+});
+
+test('a rejected data folder leaves the confirmed service path and plugin data unchanged', async () => {
+  const initialData = { language: 'ru', retainedSetting: true, reportsFolder: 'Legacy path' };
+  const harness = await pluginHarness({ initialData, dataFolder: 'Existing' });
+  harness.failConfigure(new Error('Unsafe data folder'));
+  const tab = harness.plugin.settingTabs[0];
+  await tab.setControlValue('dataFolder', '../outside');
+  await tab.setControlValue('dataFolder', 42);
+  assert.equal(tab.getControlValue('dataFolder'), 'Existing');
+  assert.deepEqual(harness.notices, ['Unsafe data folder']);
+  assert.deepEqual(harness.events, ['initialize', 'flush-drafts', 'configure-data-folder']);
+  assert.deepEqual(harness.storedData(), {});
+});
+
+test('legacy invalid reportsFolder values do not alter the new service data folder or rewrite settings', async () => {
   for (const reportsFolder of ['Settings/Reports', '.hidden/Reports', '../outside', 42, null]) {
-    const initialData = { language: 'ru', retainedSetting: true, reportsFolder };
-    const harness = await pluginHarness({ initialData });
-    assert.equal(harness.plugin.reportsFolder, '');
-    assert.equal(harness.plugin.service.host.reportsFolder(), '');
-    assert.equal(harness.notices.length, 1);
-    assert.match(harness.notices[0], /Некорректная папка отчётов.*корень хранилища/u);
+    const harness = await pluginHarness({ initialData: { language: 'ru', reportsFolder } });
+    assert.equal(harness.plugin.dataFolder, 'TWData');
+    assert.deepEqual(harness.notices, []);
     assert.deepEqual(harness.events, []);
-    assert.deepEqual(initialData, { language: 'ru', retainedSetting: true, reportsFolder });
   }
 });
 
-test('a folder save failure keeps the confirmed folder and later settings writes preserve existing data', async t => {
-  const initialData = { language: 'ru', retainedSetting: true, reportsFolder: 'Existing' };
-  const harness = await pluginHarness({ initialData });
-  t.after(() => locale.setLocale('ru'));
-  harness.failSave(new Error('Synthetic folder settings disk error'));
-  const tab = harness.plugin.settingTabs[0];
-  await tab.setControlValue('reportsFolder', 'New reports');
-  assert.equal(tab.getControlValue('reportsFolder'), 'Existing');
-  assert.equal(harness.plugin.service.host.reportsFolder(), 'Existing');
-  assert.deepEqual(harness.notices, ['Synthetic folder settings disk error']);
-  harness.failSave(undefined);
-  await tab.setControlValue('language', 'en');
-  assert.deepEqual(structuredClone(harness.storedData()), { ...initialData, language: 'en' });
-});
-
-test('concurrent language and reports folder writes serialize and retain both settings', async t => {
+test('concurrent language and data folder changes serialize without writing a duplicate folder setting', async t => {
   t.after(() => locale.setLocale('ru'));
   for (const folderFirst of [true, false]) {
-    const harness = await pluginHarness({ deferSave: true }), tab = harness.plugin.settingTabs[0];
-    const first = folderFirst ? tab.setControlValue('reportsFolder', 'Reports/Research') : tab.setControlValue('language', 'en');
-    const second = folderFirst ? tab.setControlValue('language', 'en') : tab.setControlValue('reportsFolder', 'Reports/Research');
+    const initialData = { language: 'ru', retainedSetting: true, reportsFolder: 'Legacy reports' };
+    const harness = await pluginHarness({ initialData, deferSave: true }), tab = harness.plugin.settingTabs[0];
+    const first = folderFirst ? tab.setControlValue('dataFolder', 'Research/Data') : tab.setControlValue('language', 'en');
+    const second = folderFirst ? tab.setControlValue('language', 'en') : tab.setControlValue('dataFolder', 'Research/Data');
     await harness.saveStarted;
     assert.equal(harness.events.filter(event => event === 'save-data').length, 1);
-    harness.releaseSave();
-    await Promise.all([first, second]);
-    assert.deepEqual(structuredClone(harness.storedData()), { language: 'en', retainedSetting: true, reportsFolder: 'Reports/Research' });
+    if (!folderFirst) assert.equal(harness.events.includes('configure-data-folder'), false);
+    harness.releaseSave(); await Promise.all([first, second]);
+    assert.deepEqual(structuredClone(harness.storedData()), { ...initialData, language: 'en' });
     assert.equal(tab.getControlValue('language'), 'en');
-    assert.equal(tab.getControlValue('reportsFolder'), 'Reports/Research');
+    assert.equal(tab.getControlValue('dataFolder'), 'Research/Data');
     assert.deepEqual(harness.notices, []);
   }
 });
@@ -439,8 +427,22 @@ test('host propagates a custom config directory and prevents opening or adopting
   assert.equal(harness.plugin.commands.get('adopt-active-note')?.checkCallback?.(true), false);
   harness.setActiveFile('Notes/public.md');
   assert.equal(harness.plugin.commands.get('adopt-active-note')?.checkCallback?.(true), true);
+  harness.indexedFiles.set('Notes/public.md', { path: 'Notes/public.md', extension: 'md' });
   await harness.plugin.service.host.openNote('Notes/public.md');
-  assert.equal(harness.events.includes('open-note'), true);
+  assert.deepEqual(harness.openedFiles, ['Notes/public.md']);
+});
+
+test('visible project media and exports open while legacy metadata remains protected', async () => {
+  const harness = await pluginHarness();
+  for (const relative of ['TWData/exports/Research/summary.md', 'TWData/projects/Research/images/photo.png']) {
+    harness.indexedFiles.set(relative, { path: relative, extension: relative.endsWith('.md') ? 'md' : 'png' });
+    await harness.plugin.service.host.openNote(relative);
+  }
+  assert.deepEqual(harness.openedFiles, ['TWData/exports/Research/summary.md', 'TWData/projects/Research/images/photo.png']);
+  for (const relative of ['TWData/settings.json', 'TWData/projects/00000000-0000-4000-8000-000000000001/state.json', 'TWData/projects/00000000-0000-4000-8000-000000000001/reports/summary.md']) {
+    await assert.rejects(harness.plugin.service.host.openNote(relative), /служебный файл/iu);
+  }
+  assert.deepEqual(harness.createdFiles, []);
 });
 
 test('an indexed note opens directly without creating a link target or waiting for index events', async () => {
@@ -538,13 +540,70 @@ test('unload cancels an index wait and removes its owning-window timeout and eve
   assert.equal(harness.timers.size, 0);
 });
 
-test('a nonexistent ordinary note keeps the standard openLinkText fallback without an index wait', async () => {
+test('opening a missing note reports its path without implicitly creating a file', async () => {
   const harness = await pluginHarness();
-  await harness.plugin.service.host.openNote('Notes/new.md');
-  assert.deepEqual(harness.events, ['open-note']);
+  await assert.rejects(harness.plugin.service.host.openNote('Notes/missing.md'), /Файл заметки не найден: Notes\/missing.md/u);
+  assert.deepEqual(harness.events, []);
+  assert.deepEqual(harness.createdFiles, []);
   assert.deepEqual(harness.openedFiles, []);
-  assert.deepEqual(harness.removedVaultRefs, []);
   assert.equal(harness.timers.size, 0);
+});
+
+test('native note creation respects the configured parent and does not open or copy the note', async () => {
+  const harness = await pluginHarness({ newFileParent: 'Configured/Notes' });
+  harness.setActiveFile('Source/Current.md');
+  const result = await harness.plugin.service.host.createNote('Исследование: интервью?');
+  assert.equal(result, 'Configured/Notes/Исследование- интервью-.md');
+  assert.deepEqual(harness.newFileParents, [{ sourcePath: 'Source/Current.md', filename: 'Исследование- интервью-.md' }]);
+  assert.deepEqual(harness.createdFiles, [{ path: result, text: '' }]);
+  assert.deepEqual(harness.openedFiles, []);
+  assert.deepEqual(harness.events, []);
+});
+
+test('native note creation handles the vault root, an md title and occupied filenames', async () => {
+  const harness = await pluginHarness({ newFileParent: '/' });
+  harness.parentChildren.push({ name: 'Note.md' });
+  harness.diskFiles.add('note (2).md');
+  const result = await harness.plugin.service.host.createNote('note.md');
+  assert.equal(result, 'note (3).md');
+  assert.deepEqual(harness.newFileParents, [{ sourcePath: '', filename: 'note.md' }]);
+  assert.deepEqual(harness.createdFiles, [{ path: 'note (3).md', text: '' }]);
+  assert.equal(harness.diskFiles.has('note (2).md'), true);
+});
+
+test('native note collision handling follows Unicode case folding', async () => {
+  const harness = await pluginHarness();
+  harness.parentChildren.push({ name: 'Straße.md' });
+  assert.equal(await harness.plugin.service.host.createNote('STRASSE'), 'STRASSE (2).md');
+  assert.deepEqual(harness.createdFiles, [{ path: 'STRASSE (2).md', text: '' }]);
+});
+
+test('native note creation rejects hidden, technical and config destinations before writing', async () => {
+  const harness = await pluginHarness();
+  for (const parent of ['Settings/Notes', 'settings/Notes', '.twdata/notes', '_TraceWeave/notes', 'Notes/.hidden', 'TWData/projects/Research/documents']) {
+    harness.setNewFileParent(parent);
+    await assert.rejects(harness.plugin.service.host.createNote('Note'), /папка новых заметок недоступна/u);
+  }
+  for (const title of ['', '   ', '.hidden', 'CON', 'nul.md', '...']) await assert.rejects(harness.plugin.service.host.createNote(title), /безопасное название/u);
+  assert.deepEqual(harness.createdFiles, []);
+  assert.deepEqual(harness.openedFiles, []);
+});
+
+test('native note creation reports a host write error and never writes a fallback internal copy', async () => {
+  const harness = await pluginHarness();
+  harness.failCreate(new Error('Synthetic create failure'));
+  await assert.rejects(harness.plugin.service.host.createNote('Note'), /Synthetic create failure/u);
+  assert.deepEqual(harness.createdFiles, []);
+  assert.deepEqual(harness.openedFiles, []);
+});
+
+test('native note creation stops if the plugin unloads during the existence check', async () => {
+  const harness = await pluginHarness();
+  const creating = harness.plugin.service.host.createNote('Note');
+  harness.plugin.onunload();
+  await assert.rejects(creating, /Плагин закрыт/u);
+  await harness.disposal;
+  assert.deepEqual(harness.createdFiles, []);
 });
 
 test('vault debounce and plugin unload clear the owning window timers and dispose after flushing', async () => {
@@ -560,6 +619,24 @@ test('vault debounce and plugin unload clear the owning window timers and dispos
   assert.deepEqual(harness.cleared, [0, 1]);
   assert.equal(harness.timers.size, 0);
   assert.deepEqual(harness.events, ['flush-drafts', 'dispose']);
+});
+
+test('file and folder notifications include visible attachments and technical-boundary renames', async () => {
+  const harness = await pluginHarness();
+  harness.vaultEvents.get('delete')?.({ path: 'TWData/projects/Research/images/photo.png' });
+  harness.vaultEvents.get('delete')?.({ path: 'TWData/projects/Research/audio' });
+  harness.fireTimers();
+  harness.vaultEvents.get('rename')?.({ path: 'Notes/New' }, 'Notes/Old');
+  harness.vaultEvents.get('rename')?.({ path: '.hidden/Moved.md' }, 'Notes/Moved.md');
+  harness.vaultEvents.get('rename')?.({ path: 'Notes/Recovered.md' }, '.hidden/Moved.md');
+  harness.vaultEvents.get('rename')?.({ path: '.hidden/Other.md' }, '.hidden/Moved.md');
+  await harness.plugin.openWorkbench();
+  assert.deepEqual(harness.changedFiles, ['TWData/projects/Research/images/photo.png', 'TWData/projects/Research/audio']);
+  assert.deepEqual(harness.renamedFiles, [
+    { newPath: 'Notes/New', oldPath: 'Notes/Old' },
+    { newPath: '.hidden/Moved.md', oldPath: 'Notes/Moved.md' },
+    { newPath: 'Notes/Recovered.md', oldPath: '.hidden/Moved.md' },
+  ]);
 });
 
 test('workbench leaves unmount their renderer when closed and use the manifest display name', async () => {

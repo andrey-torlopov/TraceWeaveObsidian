@@ -4,6 +4,10 @@ Real screenshots of TraceWeave **0.1.4** in desktop Obsidian **1.14.4**, using t
 
 Реальные скриншоты **TraceWeave 0.1.4** в настольном Obsidian **1.14.4**, в светлой и тёмной темах. **Lighthouse Archive / «Архив маяка»** — вымышленное исследование с демонстрационными материалами на английском и русском языках. Заметки и вложения созданы для этих снимков.
 
+These screenshots document 0.1.4. Version 0.2.0 adds the node note chooser, project diagnostics and the visible TWData layout; see the current [quick start](../en/quick-start.md).
+
+Эти снимки показывают 0.1.4. В 0.2.0 добавлены выбор заметки узла, диагностика проекта и видимое расположение TWData; актуальные действия описаны в [быстром старте](../ru/quick-start.md).
+
 ## English demonstration content
 
 ### Graph

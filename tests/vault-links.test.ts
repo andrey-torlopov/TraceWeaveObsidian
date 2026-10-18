@@ -50,6 +50,56 @@ test('ordinary vault note resolves local image and parent-relative Markdown link
   } finally { await fs.rm(root, { recursive: true, force: true }); }
 });
 
+test('visible research media and reports resolve locally while Canvas and opaque files require an explicit open', async () => {
+  const { root, links, opened, revealed } = await fixture();
+  const folder = 'TWData/projects/Моё исследование', report = 'TWData/exports/Моё исследование/summary.md';
+  const entries = [
+    [`${folder}/images/photo.png`, Buffer.from([137,80,78,71,13,10,26,10]), 'image'],
+    [`${folder}/audio/interview.mp3`, Buffer.from('ID3synthetic'), 'audio'],
+    [`${folder}/video/interview.mp4`, Buffer.from([0,0,0,16,102,116,121,112,109,112,52,50]), 'video'],
+    [`${folder}/documents/source.pdf`, '%PDF-1.4', 'file'],
+    [`${folder}/other/opaque.xyz`, Buffer.from([0,255,1]), 'file'],
+    [report, '# Обзор\n\n[[scheme.canvas]]', 'text'],
+    ['TWData/exports/Моё исследование/scheme.canvas', '{"nodes":[],"edges":[]}', 'file'],
+  ] as const;
+  try {
+    for (const [relative, body] of entries) { await fs.mkdir(path.dirname(path.join(root, relative)), { recursive: true }); await fs.writeFile(path.join(root, relative), body); }
+    const resources: string[] = [];
+    const bridge = new VaultLinks(root, { ...links.host, find: () => null, resourceUrl: relative => { resources.push(relative); return `app://vault/${encodeURIComponent(relative)}`; } });
+    for (const [relative, , kind] of entries) {
+      const resolved = await bridge.resolve('Folder-1/note1.md', '/' + encodeURI(relative));
+      assert.equal(resolved?.path, relative); assert.equal(resolved?.mediaKind, kind);
+      assert.ok(resolved.resourceUrl.startsWith('app://vault/'));
+    }
+    assert.deepEqual(opened, []); assert.deepEqual(revealed, [], 'resolution must never open or reveal files');
+    assert.deepEqual(resources, entries.map(([relative]) => relative));
+    const canvas = await bridge.resolve(report, 'scheme.canvas');
+    assert.equal(canvas?.path, 'TWData/exports/Моё исследование/scheme.canvas'); assert.equal(canvas.openMode, 'native');
+    for (const [relative] of entries) await bridge.open('Folder-1/note1.md', '/' + encodeURI(relative));
+    assert.deepEqual(opened, entries.filter(([relative]) => !relative.endsWith('.xyz')).map(([relative]) => relative));
+    assert.deepEqual(revealed, [`${folder}/other/opaque.xyz`]);
+    assert.equal((await bridge.resolve(report, '../../projects/Моё исследование/images/photo.png'))?.path, `${folder}/images/photo.png`);
+    assert.equal((await bridge.resolve(`${folder}/documents/source.md`, '/TWData/exports/Моё исследование/summary.md#^node-1'))?.path, report);
+    for (const remote of ['https://example.invalid/photo.png', '//example.invalid/video.mp4', 'data:audio/mp3;base64,AA==', 'https%3A%2F%2Fexample.invalid%2Fsource.pdf']) assert.equal(await bridge.resolve(report, remote), null);
+    assert.equal(await fs.readFile(path.join(root, report), 'utf8'), '# Обзор\n\n[[scheme.canvas]]');
+  } finally { await fs.rm(root, { recursive: true, force: true }); }
+});
+
+test('visible TWData paths cannot expose legacy UUID metadata or masquerading technical records', async () => {
+  const { root, links, opened, revealed } = await fixture();
+  const id = '11111111-1111-4111-8111-111111111111';
+  const records = ['TWData/projects/state.json', 'TWData/projects/settings.json', `TWData/projects/${id}/state.json`, `TWData/projects/${id}/history/operation.json`, `TWData/projects/${id}/journal/operation.json`, `TWData/projects/${id}/recovery/previous-state.json`, `TWData/projects/${id}/reports/report.md`, `TWData/projects/${id}/sources/raw.md`, 'TWData/settings.json', '.twdata/settings.json', 'TWData/exports/.hidden/private.md'];
+  try {
+    for (const relative of records) { await fs.mkdir(path.dirname(path.join(root, relative)), { recursive: true }); await fs.writeFile(path.join(root, relative), 'Private metadata'); }
+    for (const relative of records) {
+      assert.equal(await links.resolve('Folder-1/note1.md', '/' + relative), null, relative);
+      await assert.rejects(links.open('Folder-1/note1.md', '/' + relative));
+      assert.equal(await links.resolve(relative, '/Attachment/photo.png'), null, 'technical source must also be rejected: ' + relative);
+    }
+    assert.deepEqual(opened, []); assert.deepEqual(revealed, []);
+  } finally { await fs.rm(root, { recursive: true, force: true }); }
+});
+
 test('vault preview never resolves network, executable URLs, OS traversal, config or technical records', async () => {
   const { root, links, opened, revealed } = await fixture();
   try {
@@ -112,5 +162,20 @@ test('hidden report preview can resolve only its captured files and never expose
     assert.equal(await bridge.resolve('.twdata/settings.json', 'Attachment/photo.png'), null);
     await fs.unlink(path.join(root, image));
     assert.equal(await bridge.resolve(report, 'files/image.png'), null, 'missing captured file must not resolve to a current file');
+  } finally { await fs.rm(root, { recursive: true, force: true }); }
+});
+
+test('visible immutable snapshot links keep captured originals even when the vault resolver suggests a current file', async () => {
+  const { root, links, opened, revealed } = await fixture();
+  const directory = 'TWData/exports/Research/snapshots/22222222-2222-4222-8222-222222222222', report = `${directory}/report.md`, captured = `${directory}/files/image.png`;
+  try {
+    await fs.mkdir(path.join(root, directory, 'files'), { recursive: true });
+    await fs.copyFile(path.join(root, 'Attachment/photo.png'), path.join(root, captured));
+    const bridge = new VaultLinks(root, { ...links.host, find: () => ({ path: 'Attachment/fake.png', basename: 'Current unrelated file', extension: 'png' }) });
+    assert.equal((await bridge.resolve(report, 'files/image.png'))?.path, captured);
+    await bridge.open(report, 'files/image.png'); assert.deepEqual(opened, [captured]); assert.deepEqual(revealed, []);
+    await fs.unlink(path.join(root, captured));
+    assert.equal(await bridge.resolve(report, 'files/image.png'), null, 'a missing capture must never fall back to a current vault file');
+    for (const target of ['../../../../projects/state.json', '/TWData/settings.json', '/.twdata/settings.json']) assert.equal(await bridge.resolve(report, target), null);
   } finally { await fs.rm(root, { recursive: true, force: true }); }
 });
