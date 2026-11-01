@@ -90,3 +90,7 @@ npm run package
 Упаковка собирает bundle, создаёт локальный `release/traceweave-0.2.0.zip` и отдельные файлы в `release/0.2.0/`. GitHub Release содержит только `main.js`, `manifest.json` и `styles.css` с подтверждением происхождения сборки. Пользователю нужны собранные файлы плагина, без Node.js и исходников. Условия использования — в [LICENSE](LICENSE); полные [уведомления лицензий компонентов](THIRD_PARTY_NOTICES.md) включены в `main.js`.
 
 Лицензия собственного кода — [MIT](LICENSE). Для включённых компонентов действуют [их собственные лицензии](THIRD_PARTY_NOTICES.md).
+
+## ☕ Buy me a coffee
+
+Если проект вам полезен, вы можете [поддержать мою работу на Boosty](https://boosty.to/andreytorlopov).

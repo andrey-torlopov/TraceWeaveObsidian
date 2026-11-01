@@ -88,3 +88,7 @@ npm run package
 ```
 
 Packaging builds the bundle, creates a local `release/traceweave-0.2.0.zip` and places individual release assets in `release/0.2.0/`. GitHub releases publish only `main.js`, `manifest.json` and `styles.css`, with build provenance attestations. Users install the compiled plugin, without Node.js or this source tree. The plugin is licensed under [MIT](LICENSE); `main.js` includes the bundled components' [license notices](THIRD_PARTY_NOTICES.md).
+
+## ☕ Buy me a coffee
+
+If you find this project useful, you can [support my work on Boosty](https://boosty.to/andreytorlopov).
